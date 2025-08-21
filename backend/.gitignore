@@ -1,0 +1,55 @@
+# Environment variables
+*.env
+.env*
+
+# Large model files (Whisper, etc.)
+models/
+*.bin
+*.onnx
+*.pb
+*.safetensors
+*.pt
+*.pth
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+
+# Audio files
+uploads/
+outputs/
+*.wav
+*.mp3
+*.m4a
+*.aac
+*.ogg
+*.flac
+*.webm
+*.blob
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
