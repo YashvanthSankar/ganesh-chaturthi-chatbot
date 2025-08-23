@@ -297,64 +297,64 @@ export default function GaneshaChatbot() {
   const sendTextMessage = async () => {
     if (!textInput.trim()) return;
     
-    // Enable audio on user interaction
-    await enableAudio();
-    
     setIsProcessing(true);
     
+    // Add user message to conversation
     const userMessage: Message = {
       id: Date.now().toString(),
       type: 'user',
       content: textInput,
-      timestamp: new Date()
+      timestamp: new Date(),
+      language: 'en'
     };
     
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = textInput;
     setTextInput('');
-
+    
     try {
+      // Send as FormData (matches backend expectation)
+      const formData = new FormData();
+      formData.append('text', currentInput);
+      formData.append('language', 'en');
+      
       const response = await fetch('http://localhost:8000/text-chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          text: textInput,
-          language: 'en'
-        }),
+        body: formData, // Send FormData instead of JSON
       });
-
+      
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
-      const result: ChatResponse = await response.json();
-
-      const assistantMessage: Message = {
-        id: result.session_id,
+      
+      const data = await response.json();
+      
+      // Add Ganesha's response
+      const ganesha_message: Message = {
+        id: data.session_id,
         type: 'assistant',
-        content: result.response,
-        language: result.language,
-        audioUrl: result.audio_url ? `http://localhost:8000${result.audio_url}` : undefined,
-        timestamp: new Date()
+        content: data.response,
+        timestamp: new Date(),
+        language: data.response_language || data.language,
+        audioUrl: data.audio_url ? `http://localhost:8000${data.audio_url}` : undefined
       };
-
-      setMessages(prev => [...prev, assistantMessage]);
-
+      
+      setMessages(prev => [...prev, ganesha_message]);
+      
       // Play audio response if available and not muted
-      if (result.audio_url && !isMuted) {
-        playAudio(`http://localhost:8000${result.audio_url}`, result.session_id);
+      if (data.audio_url && !isMuted) {
+        playAudio(`http://localhost:8000${data.audio_url}`, data.session_id);
       }
-
+      
     } catch (error) {
-      console.error('Error sending text:', error);
-      const errorMessage: Message = {
+      console.error('Text chat error:', error);
+      setMessages(prev => [...prev, {
         id: 'error-' + Date.now(),
         type: 'assistant',
         content: 'I apologize, but I encountered an issue processing your message. Please try again.',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
+        timestamp: new Date(),
+        language: 'en'
+      }]);
     } finally {
       setIsProcessing(false);
     }
