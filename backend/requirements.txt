@@ -5,6 +5,8 @@ python-multipart==0.0.6
 
 # AI/ML Core
 torch==2.1.1
+torchvision==0.16.1
+torchaudio==2.1.1
 transformers==4.35.2
 accelerate==0.24.1
 
@@ -12,14 +14,16 @@ accelerate==0.24.1
 httpx==0.25.2
 
 # Audio Processing
-faster-whisper==0.10.0
-gTTS==2.4.0
-pydub==0.25.1
+pyttsx3
+pydub
+openai>=1.0.0
+ffmpeg-python
 
 # Utilities
 python-dotenv==1.0.0
 aiofiles==23.2.1
 requests==2.31.0
+urllib3==2.5.0
 
 # Language Detection
 langdetect==1.0.9
@@ -27,3 +31,4 @@ langdetect==1.0.9
 # Development
 pytest==7.4.3
 black==23.11.0
+

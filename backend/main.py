@@ -42,6 +42,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Configure app for better performance
+app.state.asr_service = None
+app.state.llm_service = None
+app.state.tts_service = None
+
 # Create necessary directories
 UPLOAD_DIR = Path("uploads")
 OUTPUT_DIR = Path("outputs")
@@ -53,23 +58,26 @@ app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize services on startup"""
+    """Initialize services on startup for better performance"""
     logger.info("🕉️ Initializing Lord Ganesha Voice Chatbot...")
     
     try:
-        # Initialize ASR service
+        # Pre-initialize services and cache them in app state
         logger.info("Loading ASR service...")
+        app.state.asr_service = asr_service
         await asr_service.initialize()
         
         # Initialize LLM service  
         logger.info("Loading LLM service...")
+        app.state.llm_service = llm_service
         await llm_service.initialize()
         
         # Initialize TTS service
         logger.info("Loading TTS service...")
+        app.state.tts_service = tts_service
         await tts_service.initialize()
         
-        logger.info("✨ All services initialized successfully! Ganesha is ready to bless devotees.")
+        logger.info("✨ All services cached and ready! Ganesha will respond faster.")
         
     except Exception as e:
         logger.error(f"❌ Failed to initialize services: {e}")

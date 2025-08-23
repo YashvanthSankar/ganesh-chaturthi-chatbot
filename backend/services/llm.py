@@ -1,6 +1,6 @@
 """
 Large Language Model (LLM) Module
-Enhanced Ganesha personality with multilingual support via OpenRouter Gemini 2.0 Flash
+Enhanced Ganesha personality with multilingual support via OpenRouter Meta Llama 3 11B
 """
 import logging
 import re
@@ -23,7 +23,7 @@ class GaneshaLLMService:
         maintaining your benevolent and wise nature. Always be encouraging and positive. You can respond in 
         multiple Indian languages based on the user's language preference."""
         
-        logger.info("LLM Service initialized for OpenRouter Gemini 2.0 Flash")
+        logger.info("LLM Service initialized for OpenRouter Meta Llama 3 11B")
     
     async def initialize(self):
         """Initialize the LLM service"""
@@ -44,10 +44,11 @@ class GaneshaLLMService:
                     "HTTP-Referer": "https://localhost:3000",
                     "X-Title": "Ganesha Chatbot"
                 },
-                timeout=30.0
+                timeout=15.0,  # Reduced timeout for faster responses
+                limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)
             )
             
-            logger.info("✅ OpenRouter Gemini 2.0 Flash service initialized successfully")
+            logger.info("✅ OpenRouter Meta Llama 3 11B service initialized successfully")
             self._initialized = True
             
         except Exception as e:
@@ -61,7 +62,7 @@ class GaneshaLLMService:
     
     async def get_response(self, user_input: str, language: str = "en") -> str:
         """
-        Generate Ganesha's response using OpenRouter Gemini 2.0 Flash
+        Generate Ganesha's response using OpenRouter Meta Llama 3 11B
         
         Args:
             user_input: User's message
@@ -86,7 +87,7 @@ class GaneshaLLMService:
             response = await self.client.post(
                 "/chat/completions",
                 json={
-                    "model": "google/gemini-2.0-flash-exp:free",
+                    "model": settings.LLM_MODEL,  # Use model from .env/config
                     "messages": [
                         {
                             "role": "system", 
@@ -97,11 +98,12 @@ class GaneshaLLMService:
                             "content": prompt
                         }
                     ],
-                    "max_tokens": 300,
-                    "temperature": 0.8,
-                    "top_p": 0.9,
+                    "max_tokens": 200,  # Reduced for faster responses
+                    "temperature": 0.7,  # Slightly more focused
+                    "top_p": 0.8,
                     "frequency_penalty": 0.1,
-                    "presence_penalty": 0.1
+                    "presence_penalty": 0.1,
+                    "stream": False  # Ensure non-streaming for faster processing
                 }
             )
             
@@ -185,6 +187,39 @@ Ganesha:""",
         
         return text
     
+    def detect_language_fast(self, text: str) -> str:
+        """
+        Fast language detection using character patterns and keywords
+        Optimized for Indian languages commonly used with Ganesha
+        """
+        text = text.lower().strip()
+        # Devanagari script (Hindi/Marathi)
+        if any(ord(char) >= 0x0900 and ord(char) <= 0x097F for char in text):
+            if any(word in text for word in ['है', 'हैं', 'का', 'की', 'को', 'में', 'से', 'गणेश', 'भगवान']):
+                return 'hi'
+            elif any(word in text for word in ['आहे', 'आहेत', 'चा', 'ची', 'च्या', 'गणपती']):
+                return 'mr'
+            else:
+                return 'hi'
+        # Tamil script
+        elif any(ord(char) >= 0x0B80 and ord(char) <= 0x0BFF for char in text):
+            return 'ta'
+        # Telugu script
+        elif any(ord(char) >= 0x0C00 and ord(char) <= 0x0C7F for char in text):
+            return 'te'
+        # Kannada script
+        elif any(ord(char) >= 0x0C80 and ord(char) <= 0x0CFF for char in text):
+            return 'kn'
+        # Malayalam script
+        elif any(ord(char) >= 0x0D00 and ord(char) <= 0x0D7F for char in text):
+            return 'ml'
+        # Bengali script
+        elif any(ord(char) >= 0x0980 and ord(char) <= 0x09FF for char in text):
+            return 'bn'
+        # English (default)
+        else:
+            return 'en'
+
     def _get_fallback_response(self, language: str) -> str:
         """Provide fallback responses when generation fails"""
         fallbacks = {

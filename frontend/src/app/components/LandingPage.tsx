@@ -1,17 +1,20 @@
 'use client';
 
 import React from 'react';
-import { useRouter } from 'next/navigation';
 import { MessageCircle, Mic, Globe, Sparkles, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
-export default function LandingPage() {
-  const router = useRouter();
-  const handleNavigateToChat = () => {
-    router.push('/chat');
-  };
+interface LandingPageProps {
+  onStartChat: () => void;
+}
+
+interface LandingPageProps {
+  onNavigateToChat: () => void;
+}
+
+export default function LandingPage({ onNavigateToChat }: LandingPageProps) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 dark:from-slate-950 dark:to-slate-900">
       {/* Header */}
@@ -92,7 +95,7 @@ export default function LandingPage() {
               </div>
               
               <Button 
-                onClick={handleNavigateToChat}
+                onClick={onNavigateToChat}
                 size="lg"
                 className="bg-orange-600 hover:bg-orange-700 text-white px-8 py-4 text-lg font-medium"
               >
