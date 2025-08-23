@@ -3,9 +3,14 @@ Configuration module for Ganesha Voice Chatbot
 """
 import os
 from typing import List
+from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+# Define the base directory of the backend folder
+BASE_DIR = Path(__file__).resolve().parent
+
+# Load the .env file from the backend folder
+load_dotenv(dotenv_path=BASE_DIR / ".env")
 
 class Settings:
     # Server Configuration
@@ -15,11 +20,11 @@ class Settings:
     
     # Model Configuration
     WHISPER_MODEL: str = os.getenv("WHISPER_MODEL", "base")
-    LLM_MODEL: str = os.getenv("LLM_MODEL", "google/gemini-2.0-flash-exp:free")
+    LLM_MODEL: str = os.getenv("LLM_MODEL", "gemini-2.5-flash")
     TTS_LANG_DEFAULT: str = os.getenv("TTS_LANG_DEFAULT", "en")
     
-    # OpenRouter Configuration
-    OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
+    # Gemini Pro Configuration
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
     
     # File Storage
     UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", "uploads")

@@ -7,6 +7,7 @@ import uuid
 import logging
 from pathlib import Path
 from typing import Optional
+import json
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
@@ -53,8 +54,22 @@ OUTPUT_DIR = Path("outputs")
 UPLOAD_DIR.mkdir(exist_ok=True)
 OUTPUT_DIR.mkdir(exist_ok=True)
 
+
 # Mount static files
 app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
+
+# Local chat history file
+CHAT_HISTORY_FILE = Path("chat_history.json")
+if not CHAT_HISTORY_FILE.exists():
+    CHAT_HISTORY_FILE.write_text("[]", encoding="utf-8")
+
+def save_chat_history(entry: dict):
+    try:
+        history = json.loads(CHAT_HISTORY_FILE.read_text(encoding="utf-8"))
+        history.append(entry)
+        CHAT_HISTORY_FILE.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception as e:
+        logger.error(f"Failed to save chat history: {e}")
 
 @app.on_event("startup")
 async def startup_event():
@@ -187,8 +202,8 @@ async def voice_chat(
         
         logger.info(f"🔊 Generated audio: {audio_output_path}")
         
-        # Return complete response
-        return {
+        # Prepare response
+        response = {
             "session_id": session_id,
             "transcription": user_text,
             "detected_language": detected_language,
@@ -197,6 +212,16 @@ async def voice_chat(
             "audio_url": f"/outputs/{audio_filename}",
             "message": "🕉️ Ganesha's divine blessing received"
         }
+        # Save to local chat history
+        save_chat_history({
+            "type": "voice",
+            "session_id": session_id,
+            "user_text": user_text,
+            "detected_language": detected_language,
+            "response": response_text,
+            "audio_url": f"/outputs/{audio_filename}"
+        })
+        return response
         
     except HTTPException:
         raise
@@ -227,13 +252,22 @@ async def text_chat(
         
         logger.info(f"💭 Ganesha responds: {response_text}")
         
-        return {
+        response = {
             "session_id": session_id,
             "user_message": text,
             "response": response_text,
             "response_language": language or "en",
             "message": "🕉️ Ganesha's wisdom shared"
         }
+        # Save to local chat history
+        save_chat_history({
+            "type": "text",
+            "session_id": session_id,
+            "user_message": text,
+            "response": response_text,
+            "response_language": language or "en"
+        })
+        return response
         
     except HTTPException:
         raise

@@ -1,0 +1,147 @@
+[
+  {
+    "type": "voice",
+    "session_id": "0c0cdc15-090d-4fcf-80c0-ba3fa5ffbfb0",
+    "user_text": "Hi, how are you?",
+    "detected_language": "en",
+    "response": "Om Gam Ganapataye Namaha! I am here to help you, dear devotee. Please share what's on your mind, and I shall guide you with wisdom and compassion.",
+    "audio_url": "/outputs/0c0cdc15-090d-4fcf-80c0-ba3fa5ffbfb0_response.wav"
+  },
+  {
+    "type": "text",
+    "session_id": "da6a6ac6-9c99-4adb-97a3-15df030be7d4",
+    "user_message": "hi",
+    "response": "Om Gam Ganapataye Namaha! I am here to help you, dear devotee. Please share what's on your mind, and I shall guide you with wisdom and compassion.",
+    "response_language": "auto"
+  },
+  {
+    "type": "text",
+    "session_id": "fa8e7e46-2ada-4227-9cd1-eb748b4a9f83",
+    "user_message": "hi",
+    "response": "Om Gam Ganapataye Namaha! I am here to help you, dear devotee. Please share what's on your mind, and I shall guide you with wisdom and compassion.",
+    "response_language": "auto"
+  },
+  {
+    "type": "text",
+    "session_id": "103769e1-3837-4a6c-9d0d-867ea2e7232f",
+    "user_message": "hi please work atleast this time",
+    "response": "Om Gam Ganapataye Namaha! I am here to help you, dear devotee. Please share what's on your mind, and I shall guide you with wisdom and compassion.",
+    "response_language": "auto"
+  },
+  {
+    "type": "text",
+    "session_id": "52f638db-b069-4b88-a96f-8073007c1726",
+    "user_message": "please work atleast this time",
+    "response": "Om Gam Ganapataye Namaha! I am here to help you, dear devotee. Please share what's on your mind, and I shall guide you with wisdom and compassion.",
+    "response_language": "auto"
+  },
+  {
+    "type": "text",
+    "session_id": "5ca2c828-20b6-4613-be34-da2ec4f339d2",
+    "user_message": "hey how are you ",
+    "response": "Om Gam Ganapataye Namaha! I am here to help you, dear devotee. Please share what's on your mind, and I shall guide you with wisdom and compassion.",
+    "response_language": "auto"
+  },
+  {
+    "type": "text",
+    "session_id": "35b41899-26f7-4d02-bd11-4d354b0004c2",
+    "user_message": "hi how are you",
+    "response": "Om Gam Ganapataye Namaha! I am here to help you, dear devotee. Please share what's on your mind, and I shall guide you with wisdom and compassion.",
+    "response_language": "auto"
+  },
+  {
+    "type": "text",
+    "session_id": "68170307-7a44-42eb-9168-4431cb6db591",
+    "user_message": "hi how are you",
+    "response": "Om Gam Ganapataye Namaha! I am here to help you, dear devotee. Please share what's on your mind, and I shall guide you with wisdom and compassion.",
+    "response_language": "auto"
+  },
+  {
+    "type": "text",
+    "session_id": "fd8b854d-8b18-4ad9-a240-6cf18ad389cb",
+    "user_message": "hi",
+    "response": "Om Gam Ganapataye Namaha! I am here to help you, dear devotee. Please share what's on your mind, and I shall guide you with wisdom and compassion.",
+    "response_language": "auto"
+  },
+  {
+    "type": "text",
+    "session_id": "9f732665-e011-4fda-b751-821aa4601e45",
+    "user_message": "hi",
+    "response": "Om Gam Ganapataye Namaha! I am here to help you, dear devotee. Please share what's on your mind, and I shall guide you with wisdom and compassion.",
+    "response_language": "auto"
+  },
+  {
+    "type": "text",
+    "session_id": "79b88c57-477c-491a-8462-14efa6796194",
+    "user_message": "hello code me",
+    "response": "Om Gam Ganapataye Namaha! I am here to help you, dear devotee. Please share what's on your mind, and I shall guide you with wisdom and compassion.",
+    "response_language": "auto"
+  },
+  {
+    "type": "text",
+    "session_id": "aa7d0c0c-da19-445a-9e40-fb238456c7e7",
+    "user_message": "hy",
+    "response": "Om Gam Ganapataye Namaha! I am here to help you, dear devotee. Please share what's on your mind, and I shall guide you with wisdom and compassion.",
+    "response_language": "auto"
+  },
+  {
+    "type": "text",
+    "session_id": "7466f605-04e4-4994-bdf5-12a590e63eaa",
+    "user_message": "hi",
+    "response": "Om Gam Ganapataye Namaha! I am here to help you, dear devotee. Please share what's on your mind, and I shall guide you with wisdom and compassion.",
+    "response_language": "auto"
+  },
+  {
+    "type": "text",
+    "session_id": "63c2b365-f6f3-4a4b-b925-1eadd3c7f504",
+    "user_message": "hi how are you im in trouble give me tips",
+    "response": "Om Gam Ganapataye Namaha! I am here to help you, dear devotee. Please share what's on your mind, and I shall guide you with wisdom and compassion.",
+    "response_language": "auto"
+  },
+  {
+    "type": "text",
+    "session_id": "f2237002-a7ea-49e3-9f07-ce1775d97df2",
+    "user_message": "hi",
+    "response": "Om Gam Ganapataye Namaha! I am here to help you, dear devotee. Please share what's on your mind, and I shall guide you with wisdom and compassion.",
+    "response_language": "auto"
+  },
+  {
+    "type": "text",
+    "session_id": "681a4898-2c58-4522-8492-e2cf5b191f2d",
+    "user_message": "hi",
+    "response": "Om Gam Ganapataye Namaha! A hearty hello to you, my dear devotee! So lovely to connect. What brings you to my humble presence today? Tell me all – even the smallest worry, for even the tiniest seed can blossom into something magnificent with a little help from your friendly neighborhood elephant-god! Let us remove some obstacles together, shall we?",
+    "response_language": "auto"
+  },
+  {
+    "type": "voice",
+    "session_id": "09486ba9-dec1-4bbb-84e1-57fb599771ca",
+    "user_text": "¡Hasta luego, nos vemos en el video!",
+    "detected_language": "en",
+    "response": "Om Gam Ganapataye Namaha! ¡Hasta luego, mi amigo! (Goodbye, my friend!) A video, you say? Excellent! The visual arts are a most delightful way to express the divine spark within. Remember, even the smallest detail, like the curve of a tusk or the gleam in an eye, can hold immense meaning. Let your creativity flow freely, like the river Ganga. Do not fear mistakes; they are but stepping stones on the path to mastery. May your video be filled with joy, and may all obstacles melt away like butter in the sun. I shall be watching with a smile, and perhaps even a little *laddu* in my trunk! Jai Ganesha!",
+    "audio_url": "/outputs/09486ba9-dec1-4bbb-84e1-57fb599771ca_response.wav"
+  },
+  {
+    "type": "voice",
+    "session_id": "0612c9a1-1868-4abe-9978-df2ff2408b6e",
+    "user_text": "يبقى أمامي",
+    "detected_language": "en",
+    "response": "Om Gam Ganapataye Namaha! يا صديقي العزيز، يبدو أنك تقول \"يبقى أمامي\" و يعني هذا \"ما زال أمامي\" أو \"باقي أمامي\" بالعربية الفصحى. هذا يعني أن لديك أهدافاً أو مهمات لم تُنجز بعد، أليس كذلك؟ لا تقلق! الطريق قد يبدو طويلاً أحياناً، لكن حتى أطول الرحلات تبدأ بخطوة واحدة. ركز على الخطوة التالية، واحتفل بكل إنجاز صغير على طول الطريق. تذكر أنني هنا لمساعدتك على إزالة أي عقبات تعترض طريقك. هل يمكنك أن تخبرني أكثر عن ما يبقى أمامك؟ ربما يمكنني أن أساعدك في وضع خطة، أو أن أقدم لك بعض النصائح الحكيمة لتسهيل الأمور عليك. تذكر، حتى أصعب التحديات يمكن التغلب عليها بالصبر والإيمان بنفسك وبقوتك الداخلية. أنا معك في كل خطوة من الطريق!",
+    "audio_url": "/outputs/0612c9a1-1868-4abe-9978-df2ff2408b6e_response.wav"
+  },
+  {
+    "type": "voice",
+    "session_id": "3b05c00e-1282-4d55-aae9-8e6a6046501d",
+    "user_text": "till something about technology.",
+    "detected_language": "en",
+    "response": "Om Gam Ganapataye Namaha! Ah, technology! A fascinating subject, isn't it? It's like a magnificent, ever-growing banyan tree, its roots spreading deep into the earth of human ingenuity, its branches reaching for the stars of innovation. One might say technology is simply the manifestation of our *buddhi* – our intelligence – channeled to create tools and systems. From the simplest wheel to the most complex spacecraft, the drive is the same: to overcome limitations, to make life easier, to explore the unknown. However, like any powerful tool, technology is a *shashtra* – a double-edged sword. Used wisely, it can be a boon, bringing people together, solving complex problems, and fostering creativity. Think of the internet, connecting individuals across continents, or medical technology saving countless lives. These are truly blessings! But misused, technology can create obstacles – indeed, it can even become an *obstacle* itself! The constant distractions of social media, the anxiety of always being \"connected,\" the potential for misuse of data... these are things we must be mindful of. My dear devotee, the key is *balance*, *viveka* (discernment). We should harness technology's power to uplift ourselves and others, always remembering its limitations and potential for harm. Just as one would use a sharp knife carefully in the kitchen, so too should we use technology with wisdom and awareness. Embrace the good it offers, but always be vigilant against its shadow. Now, tell me, what specifically about technology interests you today? Perhaps we can explore it further together! Perhaps you have a specific question or challenge you'd like to discuss? I'm always eager to lend my wisdom... and a little playful guidance, of course!",
+    "audio_url": "/outputs/3b05c00e-1282-4d55-aae9-8e6a6046501d_response.wav"
+  },
+  {
+    "type": "voice",
+    "session_id": "f6f45acb-8941-4353-8895-4cd9ea02c25b",
+    "user_text": "All right",
+    "detected_language": "en",
+    "response": "Om Gam Ganapataye Namaha! Ah, so it begins! \"All right\" you say? Excellent! What grand adventure or delightful dilemma awaits my attention today? Tell me, my child, and let us unravel the threads of your concerns together. Perhaps some modaks are in order while we work? I’m particularly fond of the cardamom ones today.",
+    "audio_url": "/outputs/f6f45acb-8941-4353-8895-4cd9ea02c25b_response.wav"
+  }
+]

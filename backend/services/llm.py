@@ -6,6 +6,7 @@ import logging
 import re
 import asyncio
 import httpx
+import json
 from typing import Dict, Optional
 
 from config import settings
@@ -16,44 +17,31 @@ class GaneshaLLMService:
     def __init__(self):
         self._initialized = False
         self.client = None
-        
         # Ganesha's divine personality traits
         self.personality_context = """You are Lord Ganesha, the remover of obstacles and patron of arts and sciences. 
         You speak with divine wisdom, compassion, and playfulness. You help devotees with their problems while 
         maintaining your benevolent and wise nature. Always be encouraging and positive. You can respond in 
         multiple Indian languages based on the user's language preference."""
-        
-        logger.info("LLM Service initialized for OpenRouter Meta Llama 3 11B")
+        logger.info("LLM Service initialized for Gemini Pro")
     
     async def initialize(self):
-        """Initialize the LLM service"""
+        """Initialize the LLM service for Gemini Pro"""
         if self._initialized:
             return
-            
         try:
-            if not settings.OPENROUTER_API_KEY or settings.OPENROUTER_API_KEY == "PLEASE_ADD_YOUR_OPENROUTER_API_KEY_HERE":
-                logger.warning("OPENROUTER_API_KEY not found - using fallback responses")
+            if not settings.GEMINI_API_KEY or settings.GEMINI_API_KEY == "PLEASE_ADD_YOUR_GEMINI_API_KEY_HERE":
+                logger.warning("GEMINI_API_KEY not found - using fallback responses")
                 self._initialized = True
                 return
-                
             self.client = httpx.AsyncClient(
-                base_url="https://openrouter.ai/api/v1",
-                headers={
-                    "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": "https://localhost:3000",
-                    "X-Title": "Ganesha Chatbot"
-                },
-                timeout=15.0,  # Reduced timeout for faster responses
+                timeout=15.0,
                 limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)
             )
-            
-            logger.info("✅ OpenRouter Meta Llama 3 11B service initialized successfully")
+            logger.info("✅ Gemini Pro service initialized successfully")
             self._initialized = True
-            
         except Exception as e:
-            logger.error(f"Failed to initialize OpenRouter: {e}")
-            self._initialized = True  # Still mark as initialized to use fallbacks
+            logger.error(f"Failed to initialize Gemini Pro: {e}")
+            self._initialized = True
         
     
     def is_initialized(self) -> bool:
@@ -62,68 +50,55 @@ class GaneshaLLMService:
     
     async def get_response(self, user_input: str, language: str = "en") -> str:
         """
-        Generate Ganesha's response using OpenRouter Meta Llama 3 11B
-        
+        Generate Ganesha's response using Gemini Pro
         Args:
             user_input: User's message
             language: Detected language code
-            
         Returns:
             Ganesha's response in the same language
         """
         try:
             if not self._initialized:
                 await self.initialize()
-            
-            # If no OpenRouter client available, use fallback
             if not self.client:
-                logger.info("Using fallback response (no OpenRouter)")
+                logger.info("Using fallback response (no Gemini Pro)")
                 return self._get_fallback_response(language)
             
-            # Build the prompt with Ganesha's personality
             prompt = self._build_prompt(user_input, language)
             
-            # Make request to OpenRouter
-            response = await self.client.post(
-                "/chat/completions",
-                json={
-                    "model": settings.LLM_MODEL,  # Use model from .env/config
-                    "messages": [
-                        {
-                            "role": "system", 
-                            "content": self.personality_context
-                        },
-                        {
-                            "role": "user", 
-                            "content": prompt
-                        }
-                    ],
-                    "max_tokens": 200,  # Reduced for faster responses
-                    "temperature": 0.7,  # Slightly more focused
-                    "top_p": 0.8,
-                    "frequency_penalty": 0.1,
-                    "presence_penalty": 0.1,
-                    "stream": False  # Ensure non-streaming for faster processing
-                }
-            )
+            # --- THIS IS THE CORRECTED CODE ---
             
+            # Always use the full Gemini endpoint URL
+            full_url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.LLM_MODEL}:generateContent?key={settings.GEMINI_API_KEY}"
+            logger.info(f"Attempting to call endpoint: {full_url}")
+
+            payload = {
+                "contents": [
+                    {
+                        "role": "user",
+                        "parts": [
+                            {"text": self.personality_context + "\n" + prompt}
+                        ]
+                    }
+                ]
+            }
+            response = await self.client.post(full_url, content=json.dumps(payload), headers={"Content-Type": "application/json"})
+            
+            # --- END OF CORRECTION ---
+
             if response.status_code == 200:
                 result = response.json()
-                generated_text = result["choices"][0]["message"]["content"]
-                
-                # Clean and format response
+                generated_text = result.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
                 cleaned_response = self._clean_response(generated_text, language)
-                
                 logger.info(f"Generated response: '{cleaned_response[:50]}...' (lang: {language})")
                 return cleaned_response
             else:
-                logger.error(f"OpenRouter API error: {response.status_code} - {response.text}")
+                logger.error(f"Gemini Pro API error: {response.status_code} - {response.text}")
                 return self._get_fallback_response(language)
-                
         except Exception as e:
             logger.error(f"LLM generation failed: {e}")
             return self._get_fallback_response(language)
-    
+
     def _build_prompt(self, user_input: str, language: str) -> str:
         """Build language-specific prompts for Ganesha personality"""
         

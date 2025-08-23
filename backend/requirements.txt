@@ -17,7 +17,9 @@ httpx==0.25.2
 pyttsx3
 pydub
 openai>=1.0.0
-ffmpeg-python
+ffmpeg
+edge-tts
+nest_asyncio
 
 # Utilities
 python-dotenv==1.0.0

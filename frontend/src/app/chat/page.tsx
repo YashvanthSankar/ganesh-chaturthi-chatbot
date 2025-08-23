@@ -56,15 +56,36 @@ export default function ChatPage() {
 
   useEffect(() => {
     setIsClient(true);
-    // Add welcome message from Lord Ganesha
-    const welcomeMessage: Message = {
-      id: 'welcome',
-      type: 'assistant',
-      content: '🕉️ Namaste! I am Lord Ganesha, the remover of obstacles and patron of arts and sciences. I am here to guide you with wisdom, bless your endeavors, and help you overcome any challenges you may face. Whether you seek spiritual guidance, need motivation for new beginnings, or simply wish to have a meaningful conversation, I am here for you. Feel free to speak in any Indian language or type in English. How may I bless you today? 🙏',
-      timestamp: new Date()
-    };
-    setMessages([welcomeMessage]);
+    // Load chat history from localStorage
+    const stored = window.localStorage.getItem('ganesha_chat_history');
+    if (stored) {
+      try {
+        const parsed: Message[] = JSON.parse(stored).map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp)
+        }));
+        setMessages(parsed);
+      } catch {
+        window.localStorage.removeItem('ganesha_chat_history');
+        setMessages([]);
+      }
+    } else {
+      // Add welcome message from Lord Ganesha
+      const welcomeMessage: Message = {
+        id: 'welcome',
+        type: 'assistant',
+        content: '🕉️ Namaste! I am Lord Ganesha, the remover of obstacles and patron of arts and sciences. I am here to guide you with wisdom, bless your endeavors, and help you overcome any challenges you may face. Whether you seek spiritual guidance, need motivation for new beginnings, or simply wish to have a meaningful conversation, I am here for you. Feel free to speak in any Indian language or type in English. How may I bless you today? 🙏',
+        timestamp: new Date()
+      };
+      setMessages([welcomeMessage]);
+    }
   }, []);
+  // Save chat history to localStorage whenever messages change
+  useEffect(() => {
+    if (isClient) {
+      window.localStorage.setItem('ganesha_chat_history', JSON.stringify(messages));
+    }
+  }, [messages, isClient]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

@@ -1,15 +1,17 @@
 """
 Text-to-Speech (TTS) Module
-pyttsx3 integration for offline TTS with male voice selection
+Edge TTS integration for online TTS with Indian male voice selection
 """
 import os
 import logging
 import tempfile
 from typing import Optional
-import pyttsx3
+import edge_tts
+import asyncio
 from pydub import AudioSegment
 from pydub.effects import normalize, low_pass_filter
 from config import settings
+import sys
 
 logger = logging.getLogger(__name__)
 
@@ -17,24 +19,37 @@ class TTSService:
     def __init__(self):
         self._initialized = False
         self.language_mapping = {
-            "en": "en",
-            "hi": "hi", 
-            "ta": "ta",
-            "te": "te",
-            "kn": "kn",
-            "ml": "ml",
-            "bn": "bn",
-            "mr": "mr",
-            "gu": "gu",
-            "pa": "pa",
-            "ur": "ur",
+            "en": "en-IN",
+            "hi": "hi-IN",
+            "ta": "ta-IN",
+            "te": "te-IN",
+            "kn": "kn-IN",
+            "ml": "ml-IN",
+            "bn": "bn-IN",
+            "mr": "mr-IN",
+            "gu": "gu-IN",
+            "pa": "pa-IN",
+            "ur": "ur-IN",
         }
-        logger.info("TTS Service initialized with pyttsx3 support")
+        self.voice_mapping = {
+            "en": "en-IN-PrabhatNeural",
+            "hi": "hi-IN-MadhurNeural",
+            "ta": "ta-IN-ValluvarNeural",
+            "te": "te-IN-MohanNeural",
+            "kn": "kn-IN-GaganNeural",
+            "ml": "ml-IN-MidhunNeural",
+            "bn": "bn-IN-BashkarNeural",
+            "mr": "mr-IN-ManoharNeural",
+            "gu": "gu-IN-NiranjanNeural",
+            "pa": "pa-IN-GurpreetNeural",
+            "ur": "ur-IN-SalmanNeural",
+        }
+        logger.info("TTS Service initialized with Edge TTS support")
 
     async def initialize(self):
         if self._initialized:
             return
-        logger.info("TTS Service ready for pyttsx3 speech synthesis")
+        logger.info("TTS Service ready for Edge TTS speech synthesis")
         self._initialized = True
 
     def is_initialized(self) -> bool:
@@ -42,7 +57,7 @@ class TTSService:
 
     def generate_speech(self, text: str, language: str, output_path: str) -> bool:
         """
-        Generate speech from text using pyttsx3 (male voice)
+        Generate speech from text using Edge TTS (Indian male voice)
         """
         try:
             if language not in self.language_mapping:
@@ -52,46 +67,60 @@ class TTSService:
             if not cleaned_text.strip():
                 logger.error(f"Input text is empty after cleaning: '{text}'")
                 return False
-            logger.info(f"Generating TTS (pyttsx3) for: '{cleaned_text[:50]}...' (lang: {language})")
-            engine = pyttsx3.init()
-            # Select male voice
-            voices = engine.getProperty('voices')
-            male_voice = None
-            for v in voices:
-                if 'male' in v.name.lower() or v.gender == 'VoiceGenderMale':
-                    male_voice = v.id
-                    break
-            if male_voice:
-                engine.setProperty('voice', male_voice)
+            # Ensure output directory exists
+            output_dir = os.path.dirname(output_path)
+            if output_dir and not os.path.exists(output_dir):
+                os.makedirs(output_dir, exist_ok=True)
+            logger.info(f"Generating TTS (Edge TTS) for: '{cleaned_text[:50]}...' (lang: {language})")
+            logger.info(f"Edge TTS output path: {output_path}")
+            voice = "en-IN-PrabhatNeural"
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    import nest_asyncio
+                    nest_asyncio.apply()
+                    loop.run_until_complete(self._edge_tts_generate(cleaned_text, voice, output_path))
+                else:
+                    if sys.platform.startswith('win'):
+                        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+                    loop.run_until_complete(self._edge_tts_generate(cleaned_text, voice, output_path))
+            except Exception as loop_err:
+                logger.error(f"Edge TTS event loop error: {loop_err}")
+                return False
+            # Check if file was created
+            if not os.path.exists(output_path):
+                logger.error(f"Edge TTS did not create output file: {output_path}")
+                return False
             else:
-                logger.warning("No male voice found, using default voice.")
-            # Save to temporary WAV file
-            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
-                temp_path = temp_file.name
-            engine.save_to_file(cleaned_text, temp_path)
-            engine.runAndWait()
-            self._enhance_audio(temp_path, output_path)
-            os.unlink(temp_path)
+                file_size = os.path.getsize(output_path)
+                logger.info(f"Edge TTS output file created: {output_path} (size: {file_size} bytes)")
+                if file_size < 1000:
+                    logger.warning(f"Output file is very small, may be silent or corrupt: {output_path}")
+            self._enhance_audio(output_path, output_path)
+            # After enhancement, check file size again
+            if os.path.exists(output_path):
+                enhanced_size = os.path.getsize(output_path)
+                logger.info(f"Enhanced audio file size: {enhanced_size} bytes")
             logger.info(f"TTS generation successful: {output_path}")
             return True
         except Exception as e:
-            logger.error(f"pyttsx3 generation failed: {e} | Input: '{text}'")
+            logger.error(f"Edge TTS generation failed: {e} | Input: '{text}'")
             return False
+
+    async def _edge_tts_generate(self, text: str, voice: str, output_path: str):
+        try:
+            communicate = edge_tts.Communicate(text, voice)
+            await communicate.save(output_path)
+            logger.info(f"Edge TTS synthesis completed: {output_path}")
+        except Exception as e:
+            logger.error(f"Edge TTS async synthesis failed: {e} | text: '{text}' | voice: '{voice}' | output: '{output_path}'")
+            # Optionally, create a dummy file to avoid downstream errors
+            with open(output_path, "wb") as f:
+                pass
 
     def _clean_text_for_tts(self, text: str, language: str) -> str:
         text = " ".join(text.split())
-        if language == "hi":
-            replacements = {
-                "okay": "ठीक है",
-                "ok": "ठीक",
-                "yes": "हाँ",
-                "no": "नहीं",
-                "please": "कृपया",
-                "thank you": "धन्यवाद",
-                "sorry": "माफ़ करें"
-            }
-            for eng, hin in replacements.items():
-                text = text.replace(eng, hin)
         import re
         text = re.sub(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', '', text)
         text = re.sub(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', '', text)
@@ -99,7 +128,7 @@ class TTSService:
 
     def _enhance_audio(self, input_path: str, output_path: str) -> None:
         try:
-            audio = AudioSegment.from_wav(input_path)
+            audio = AudioSegment.from_file(input_path)
             enhanced_audio = self._apply_divine_effects(audio)
             enhanced_audio.export(output_path, format="wav", 
                                 parameters=["-ac", "1", "-ar", "44100", "-acodec", "pcm_s16le"])
@@ -107,30 +136,25 @@ class TTSService:
         except Exception as e:
             logger.warning(f"Audio enhancement failed, using simple conversion: {e}")
             try:
-                audio = AudioSegment.from_wav(input_path)
+                audio = AudioSegment.from_file(input_path)
                 boosted_audio = audio + 10
                 boosted_audio.export(output_path, format="wav")
                 logger.info("✅ Basic audio conversion successful")
             except Exception as e2:
                 logger.error(f"Even basic audio conversion failed: {e2}")
                 import shutil
-                shutil.copy(input_path, output_path)
+                if input_path != output_path:
+                    shutil.copy(input_path, output_path)
+                else:
+                    logger.warning("Input and output paths are the same, skipping file copy.")
 
     def _apply_divine_effects(self, audio: AudioSegment) -> AudioSegment:
         try:
-            audio = audio + 15
-            try:
-                new_sample_rate = int(audio.frame_rate * 0.95)
-                audio = audio._spawn(audio.raw_data, overrides={"frame_rate": new_sample_rate})
-                audio = audio.set_frame_rate(audio.frame_rate)
-            except:
-                logger.info("Pitch shift not available, using original pitch")
-            enhanced_audio = audio + 8
-            enhanced_audio = enhanced_audio + 5
-            return enhanced_audio
+            audio = audio + 10
+            return audio
         except Exception as e:
             logger.warning(f"Divine effects failed, using basic volume boost: {e}")
-            return audio + 20
+            return audio + 10
 
     def get_supported_languages(self) -> dict:
         return {
