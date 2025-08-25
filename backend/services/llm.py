@@ -4,7 +4,6 @@ Enhanced Ganesha personality with multilingual support via OpenRouter Meta Llama
 """
 import logging
 import re
-import asyncio
 import httpx
 import json
 from typing import Dict, Optional

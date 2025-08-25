@@ -4,10 +4,7 @@ Edge TTS integration for online TTS with Indian male voice selection
 """
 import os
 import logging
-import tempfile
-from typing import Optional
 import edge_tts
-import asyncio
 from pydub import AudioSegment
 from pydub.effects import normalize, low_pass_filter
 from config import settings

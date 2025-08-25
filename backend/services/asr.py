@@ -1,4 +1,3 @@
-import os
 import torch
 import logging
 from typing import Tuple, Optional
