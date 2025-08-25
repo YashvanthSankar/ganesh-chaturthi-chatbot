@@ -4,7 +4,6 @@ import React, { useState, useRef, useEffect, useReducer } from 'react';
 import { useRouter } from 'next/navigation';
 import { Mic, MicOff, Send, Volume2, VolumeX, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -112,7 +111,6 @@ export default function ChatPage() {
   const audioChunksRef = useRef<Blob[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
@@ -123,7 +121,7 @@ export default function ChatPage() {
     try {
       const stored = window.localStorage.getItem('ganesha_chat_history');
       if (stored) {
-        const parsed: Message[] = JSON.parse(stored).map((msg: any) => ({
+        const parsed: Message[] = JSON.parse(stored).map((msg: Message) => ({
           ...msg,
           timestamp: new Date(msg.timestamp),
         }));
@@ -148,16 +146,19 @@ export default function ChatPage() {
       window.localStorage.setItem('ganesha_chat_history', JSON.stringify(messages));
     }
   }, [messages, isClient]);
-
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   useEffect(() => {
+    const audio = currentAudio;                     // ✅ copy ref/var to local
+    const timer = silenceTimerRef.current;
+    const ctx = audioContextRef.current;
+
     return () => {
-      currentAudio?.pause();
-      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-      audioContextRef.current?.close();
+      audio?.pause();
+      if (timer) clearTimeout(timer);
+      ctx?.close();
     };
   }, [currentAudio]);
 

@@ -57,8 +57,8 @@ export default function LandingPage() {
                 Ganapathi Of All Time
               </span>
             </h1>
-            
-            <p className="text-2xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto leading-relaxed font-light">
+                  <p className="text-slate-500 dark:text-slate-400 italic">
+                    &quot;A truly divine experience that bridges ancient wisdom with modern technology&quot; - Devotee from Mumbai
               Experience divine wisdom through cutting-edge AI technology embodying the sacred blessings of 
               <span className="font-semibold text-orange-600"> Lord Ganesha</span>, 
               the eternal remover of obstacles
@@ -148,7 +148,7 @@ export default function LandingPage() {
                 </h2>
                 
                 <p className="text-xl text-slate-600 dark:text-slate-300 mb-8 leading-relaxed max-w-2xl mx-auto">
-                  Transform your spiritual practice with personalized guidance from our revolutionary AI embodiment of Lord Ganesha's wisdom
+                  Transform your spiritual practice with personalized guidance from our revolutionary AI embodiment of Lord Ganesha&apos;s wisdom
                 </p>
               </div>
               
@@ -198,8 +198,8 @@ export default function LandingPage() {
 
         {/* Testimonial */}
         <div className="text-center mt-12 opacity-70">
-          <p className="text-slate-500 dark:text-slate-400 italic">
-            "A truly divine experience that bridges ancient wisdom with modern technology" - Devotee from Mumbai
+            <p className="text-slate-500 dark:text-slate-400 italic">
+              &quot;A truly divine experience that bridges ancient wisdom with modern technology&quot; - Devotee from Mumbai
           </p>
         </div>
       </div>
