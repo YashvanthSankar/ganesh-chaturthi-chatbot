@@ -37,9 +37,7 @@ class Settings:
     
     # CORS
     CORS_ORIGINS: List[str] = [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:3001",
+        os.getenv("FRONTEND_URL", "https://goat-chatbot.vercel.app/")
     ]
     
     # Language Support
