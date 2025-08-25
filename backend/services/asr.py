@@ -1,51 +1,3 @@
-"""
-Automatic Speech Recognition (ASR) Module
-Using faster-whisper for multilingual speech-to-text conversion
-"""
-import os
-import torch
-import logging
-from typing import Tuple, Optional
-from faster_whisper import WhisperModel
-from langdetect import detect, DetectorFactory
-from langdetect.lang_detect_exception import LangDetectException
-
-from config import settings
-
-# Set seed for consistent language detection
-DetectorFactory.seed = 0
-
-logger = logging.getLogger(__name__)
-
-class ASRService:
-    def __init__(self):
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.compute_type = "float16" if self.device == "cuda" else "int8"
-        self.model = None
-        self._initialized = False
-        logger.info(f"ASR Service initialized for device: {self.device}")
-
-    def _transliterate_if_needed(self, text: str) -> str:
-        """
-        Attempt to transliterate Latin-script Indian language text to native script, with improved heuristics
-        """
-        try:
-            from indic_transliteration.sanscript import transliterate, SCHEMES
-            # Try transliterating to all major Indian scripts
-            best_native = text
-            max_non_ascii = 0
-            for script in ["devanagari", "bengali", "tamil", "telugu", "kannada", "malayalam", "gujarati", "oriya", "punjabi"]:
-                native = transliterate(text, "itrans", script)
-                non_ascii = sum(ord(c) > 127 for c in native)
-                if non_ascii > max_non_ascii:
-                    max_non_ascii = non_ascii
-                    best_native = native
-            # If transliteration produced significant non-ASCII, use it
-            if max_non_ascii > 0.2 * len(best_native):
-                return best_native
-        except Exception:
-            pass
-        return text
 import os
 import torch
 import logging
@@ -69,6 +21,28 @@ class ASRService:
         self._initialized = False
         
         logger.info(f"ASR Service initialized for device: {self.device}")
+    
+    def _transliterate_if_needed(self, text: str) -> str:
+        """
+        Attempt to transliterate Latin-script Indian language text to native script, with improved heuristics
+        """
+        try:
+            from indic_transliteration.sanscript import transliterate, SCHEMES
+            # Try transliterating to all major Indian scripts
+            best_native = text
+            max_non_ascii = 0
+            for script in ["devanagari", "bengali", "tamil", "telugu", "kannada", "malayalam", "gujarati", "oriya", "punjabi"]:
+                native = transliterate(text, "itrans", script)
+                non_ascii = sum(ord(c) > 127 for c in native)
+                if non_ascii > max_non_ascii:
+                    max_non_ascii = non_ascii
+                    best_native = native
+            # If transliteration produced significant non-ASCII, use it
+            if max_non_ascii > 0.2 * len(best_native):
+                return best_native
+        except Exception:
+            pass
+        return text
     
     async def initialize(self):
         """Initialize the ASR service by loading the Whisper model"""

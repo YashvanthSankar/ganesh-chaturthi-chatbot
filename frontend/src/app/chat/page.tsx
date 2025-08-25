@@ -1,16 +1,17 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useReducer } from 'react';
 import { useRouter } from 'next/navigation';
-import { Mic, MicOff, Send, Volume2, VolumeX, MessageCircle, ArrowLeft } from 'lucide-react';
+import { Mic, MicOff, Send, Volume2, VolumeX, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 
+// --- Type Definitions ---
 interface Message {
   id: string;
   type: 'user' | 'assistant';
@@ -22,65 +23,126 @@ interface Message {
 
 interface ChatResponse {
   session_id: string;
+  transcription?: string;
   user_message: string;
   response: string;
-  language: string;
+  language?: string;
   response_language?: string;
   audio_url?: string;
 }
 
-interface ChatPageProps {
-  onBackToHome: () => void;
+// --- Reducer ---
+type State = {
+  messages: Message[];
+  textInput: string;
+  isRecording: boolean;
+  isProcessing: boolean;
+  isMuted: boolean;
+  isPlaying: boolean;
+  playingMessageId: string | null;
+  voiceDetected: boolean;
+  isClient: boolean;
+};
+
+type Action =
+  | { type: 'SET_MESSAGES'; payload: Message[] }
+  | { type: 'ADD_MESSAGE'; payload: Message }
+  | { type: 'UPDATE_USER_VOICE_MESSAGE'; payload: { id: string; content: string; language?: string } }
+  | { type: 'SET_TEXT_INPUT'; payload: string }
+  | { type: 'SET_IS_RECORDING'; payload: boolean }
+  | { type: 'SET_IS_PROCESSING'; payload: boolean }
+  | { type: 'TOGGLE_MUTE' }
+  | { type: 'SET_IS_PLAYING'; payload: { isPlaying: boolean; messageId: string | null } }
+  | { type: 'SET_VOICE_DETECTED'; payload: boolean }
+  | { type: 'SET_IS_CLIENT'; payload: boolean };
+
+const initialState: State = {
+  messages: [],
+  textInput: '',
+  isRecording: false,
+  isProcessing: false,
+  isMuted: false,
+  isPlaying: false,
+  playingMessageId: null,
+  voiceDetected: false,
+  isClient: false,
+};
+
+function chatReducer(state: State, action: Action): State {
+  switch (action.type) {
+    case 'SET_MESSAGES':
+      return { ...state, messages: action.payload };
+    case 'ADD_MESSAGE':
+      return { ...state, messages: [...state.messages, action.payload] };
+    case 'UPDATE_USER_VOICE_MESSAGE':
+      return {
+        ...state,
+        messages: state.messages.map((msg) =>
+          msg.id === action.payload.id
+            ? { ...msg, content: action.payload.content, language: action.payload.language }
+            : msg
+        ),
+      };
+    case 'SET_TEXT_INPUT':
+      return { ...state, textInput: action.payload };
+    case 'SET_IS_RECORDING':
+      return { ...state, isRecording: action.payload };
+    case 'SET_IS_PROCESSING':
+      return { ...state, isProcessing: action.payload };
+    case 'TOGGLE_MUTE':
+      return { ...state, isMuted: !state.isMuted };
+    case 'SET_IS_PLAYING':
+      return { ...state, isPlaying: action.payload.isPlaying, playingMessageId: action.payload.messageId };
+    case 'SET_VOICE_DETECTED':
+      return { ...state, voiceDetected: action.payload };
+    case 'SET_IS_CLIENT':
+      return { ...state, isClient: action.payload };
+    default:
+      return state;
+  }
 }
 
 export default function ChatPage() {
   const router = useRouter();
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [textInput, setTextInput] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
+  const [state, dispatch] = useReducer(chatReducer, initialState);
+  const { messages, textInput, isRecording, isProcessing, isMuted, isPlaying, playingMessageId, isClient } = state;
+
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [playingMessageId, setPlayingMessageId] = useState<string | null>(null);
-  const [isClient, setIsClient] = useState(false);
-  const [audioEnabled, setAudioEnabled] = useState(false);
-  const [voiceDetected, setVoiceDetected] = useState(false);
-  
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+
+  // --- Effects ---
   useEffect(() => {
-    setIsClient(true);
-    // Load chat history from localStorage
-    const stored = window.localStorage.getItem('ganesha_chat_history');
-    if (stored) {
-      try {
+    dispatch({ type: 'SET_IS_CLIENT', payload: true });
+    try {
+      const stored = window.localStorage.getItem('ganesha_chat_history');
+      if (stored) {
         const parsed: Message[] = JSON.parse(stored).map((msg: any) => ({
           ...msg,
-          timestamp: new Date(msg.timestamp)
+          timestamp: new Date(msg.timestamp),
         }));
-        setMessages(parsed);
-      } catch {
-        window.localStorage.removeItem('ganesha_chat_history');
-        setMessages([]);
+        dispatch({ type: 'SET_MESSAGES', payload: parsed });
+      } else {
+        const welcomeMessage: Message = {
+          id: 'welcome',
+          type: 'assistant',
+          content: '🕉️ Namaste! I am Lord Ganesha. How may I bless you today? 🙏',
+          timestamp: new Date(),
+        };
+        dispatch({ type: 'SET_MESSAGES', payload: [welcomeMessage] });
       }
-    } else {
-      // Add welcome message from Lord Ganesha
-      const welcomeMessage: Message = {
-        id: 'welcome',
-        type: 'assistant',
-        content: '🕉️ Namaste! I am Lord Ganesha, the remover of obstacles and patron of arts and sciences. I am here to guide you with wisdom, bless your endeavors, and help you overcome any challenges you may face. Whether you seek spiritual guidance, need motivation for new beginnings, or simply wish to have a meaningful conversation, I am here for you. Feel free to speak in any Indian language or type in English. How may I bless you today? 🙏',
-        timestamp: new Date()
-      };
-      setMessages([welcomeMessage]);
+    } catch {
+      window.localStorage.removeItem('ganesha_chat_history');
+      dispatch({ type: 'SET_MESSAGES', payload: [] });
     }
   }, []);
-  // Save chat history to localStorage whenever messages change
+
   useEffect(() => {
     if (isClient) {
       window.localStorage.setItem('ganesha_chat_history', JSON.stringify(messages));
@@ -91,367 +153,180 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Cleanup audio when component unmounts
   useEffect(() => {
     return () => {
-      if (currentAudio) {
-        currentAudio.pause();
-        currentAudio.currentTime = 0;
-        setCurrentAudio(null);
-        setIsPlaying(false);
-        setPlayingMessageId(null);
-      }
-      
-      if (silenceTimerRef.current) {
-        clearTimeout(silenceTimerRef.current);
-        silenceTimerRef.current = null;
-      }
-      
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-        audioContextRef.current = null;
-      }
+      currentAudio?.pause();
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      audioContextRef.current?.close();
     };
   }, [currentAudio]);
 
-  // Enable audio context on first user interaction
-  const enableAudio = async () => {
-    if (!audioEnabled) {
-      try {
-        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmEcBzaf2u/HeCEFKIXJ8d2OOAYOYL3r5ZBPFB5Ol9n1yXIqBSN8yO/HeCwFLoJI8+OQRA==');
-        await audio.play();
-        setAudioEnabled(true);
-        console.log('✅ Audio context enabled');
-      } catch (error) {
-        console.log('Audio context not enabled yet');
-      }
+  // --- Audio ---
+  const playAudio = async (url: string, messageId: string) => {
+    if (isMuted) return;
+    if (currentAudio) currentAudio.pause();
+
+    const audio = new Audio(url);
+    audio.onplay = () => dispatch({ type: 'SET_IS_PLAYING', payload: { isPlaying: true, messageId } });
+    audio.onended = () => dispatch({ type: 'SET_IS_PLAYING', payload: { isPlaying: false, messageId: null } });
+    audio.onpause = () => dispatch({ type: 'SET_IS_PLAYING', payload: { isPlaying: false, messageId: null } });
+
+    try {
+      await audio.play();
+      setCurrentAudio(audio);
+    } catch (error) {
+      console.error('Audio play failed:', error);
     }
   };
 
+  const stopAudio = () => {
+    currentAudio?.pause();
+  };
+
+  const toggleMute = () => {
+    dispatch({ type: 'TOGGLE_MUTE' });
+    if (!isMuted) stopAudio();
+  };
+
+  // --- Messaging ---
   const sendTextMessage = async () => {
-    if (!textInput.trim()) return;
-    
-    await enableAudio();
-    setIsProcessing(true);
-    
+    if (!textInput.trim() || isProcessing) return;
+    dispatch({ type: 'SET_IS_PROCESSING', payload: true });
+
     const userMessage: Message = {
       id: Date.now().toString(),
       type: 'user',
       content: textInput,
       timestamp: new Date(),
-      language: 'en'
     };
-    
-    setMessages(prev => [...prev, userMessage]);
-    const currentInput = textInput;
-    setTextInput('');
-    
+    dispatch({ type: 'ADD_MESSAGE', payload: userMessage });
+    dispatch({ type: 'SET_TEXT_INPUT', payload: '' });
+
     try {
       const formData = new FormData();
-      formData.append('text', currentInput);
-      formData.append('language', 'auto'); // Let backend detect language
-      
-      const response = await fetch('http://localhost:8000/text-chat', {
+      formData.append('text', userMessage.content);
+
+      const response = await fetch(`${API_BASE}/text-chat`, {
         method: 'POST',
         body: formData,
       });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      const ganesha_message: Message = {
+
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+      const data: ChatResponse = await response.json();
+
+      const assistantMessage: Message = {
         id: data.session_id,
         type: 'assistant',
         content: data.response,
         timestamp: new Date(),
         language: data.response_language || data.language,
-        audioUrl: data.audio_url ? `http://localhost:8000${data.audio_url}` : undefined
+        audioUrl: data.audio_url ? `${API_BASE}${data.audio_url}` : undefined,
       };
-      
-      setMessages(prev => [...prev, ganesha_message]);
-      
-      // Play audio response if available and not muted
-      if (data.audio_url && !isMuted) {
-        playAudio(`http://localhost:8000${data.audio_url}`, data.session_id);
-      }
-      
+      dispatch({ type: 'ADD_MESSAGE', payload: assistantMessage });
+
+      if (assistantMessage.audioUrl) playAudio(assistantMessage.audioUrl, assistantMessage.id);
     } catch (error) {
       console.error('Text chat error:', error);
-      setMessages(prev => [...prev, {
-        id: 'error-' + Date.now(),
-        type: 'assistant',
-        content: 'I apologize, but I encountered an issue processing your message. Please try again.',
-        timestamp: new Date(),
-        language: 'en'
-      }]);
+      dispatch({
+        type: 'ADD_MESSAGE',
+        payload: {
+          id: 'error-' + Date.now(),
+          type: 'assistant',
+          content: 'My apologies, something went wrong. Please try again.',
+          timestamp: new Date(),
+        },
+      });
     } finally {
-      setIsProcessing(false);
+      dispatch({ type: 'SET_IS_PROCESSING', payload: false });
     }
   };
 
+  // --- Recording ---
   const startRecording = async () => {
-    await enableAudio();
-    
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          sampleRate: 44100
-        } 
-      });
-      
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const source = audioContextRef.current.createMediaStreamSource(stream);
-      analyserRef.current = audioContextRef.current.createAnalyser();
-      analyserRef.current.fftSize = 256;
-      source.connect(analyserRef.current);
-      
-      mediaRecorderRef.current = new MediaRecorder(stream, {
-        mimeType: 'audio/webm'
-      });
-      
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      dispatch({ type: 'SET_IS_RECORDING', payload: true });
+
+      mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'audio/webm' });
       audioChunksRef.current = [];
-      
-      mediaRecorderRef.current.ondataavailable = (event) => {
-        audioChunksRef.current.push(event.data);
-      };
-      
-      mediaRecorderRef.current.onstop = async () => {
-        if (silenceTimerRef.current) {
-          clearTimeout(silenceTimerRef.current);
-          silenceTimerRef.current = null;
-        }
+
+      mediaRecorderRef.current.ondataavailable = (event) => audioChunksRef.current.push(event.data);
+      mediaRecorderRef.current.onstop = () => {
+        stream.getTracks().forEach((track) => track.stop());
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        await sendAudioMessage(audioBlob);
-        stream.getTracks().forEach(track => track.stop());
-        
-        if (audioContextRef.current) {
-          audioContextRef.current.close();
-          audioContextRef.current = null;
-        }
-        analyserRef.current = null;
-      };
-      
-      mediaRecorderRef.current.start();
-      setIsRecording(true);
-      startVoiceActivityDetection();
-      
-    } catch (error) {
-      console.error('Error accessing microphone:', error);
-      alert('Could not access microphone. Please check permissions.');
-    }
-  };
-
-  let globalHasDetectedVoice = false;
-  let globalNoSpeechHandled = false;
-
-  const stopRecording = (noSpeech = false) => {
-    if (mediaRecorderRef.current && isRecording) {
-      if (silenceTimerRef.current) {
-        clearTimeout(silenceTimerRef.current);
-        silenceTimerRef.current = null;
-      }
-      setVoiceDetected(false);
-      setIsRecording(false); // Reset button immediately
-
-      // Stop all tracks and clean up stream
-      if (mediaRecorderRef.current.stream) {
-        mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
-      }
-
-      // Clean up audio context and analyser
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-        audioContextRef.current = null;
-      }
-      analyserRef.current = null;
-
-      // Handle message and upload
-      mediaRecorderRef.current.onstop = async () => {
-        if (noSpeech && !globalNoSpeechHandled) {
-          globalNoSpeechHandled = true;
-          setMessages(prev => [...prev, {
-            id: 'no-voice-' + Date.now(),
-            type: 'assistant',
-            content: 'I could not hear you clearly. Please try again.',
-            timestamp: new Date()
-          }]);
-        } else if (!noSpeech) {
-          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-          await sendAudioMessage(audioBlob);
-        }
+        if (audioChunksRef.current.length > 0) sendAudioMessage(audioBlob);
         audioChunksRef.current = [];
       };
 
-      try {
-        mediaRecorderRef.current.stop();
-      } catch (error) {
-        console.error('Error stopping media recorder:', error);
-      }
-    } else {
-      // If not recording, reset button and clean up
-      setIsRecording(false);
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-        audioContextRef.current = null;
-      }
-      analyserRef.current = null;
+      mediaRecorderRef.current.start();
+    } catch (error) {
+      console.error('Mic access error:', error);
+      alert('Microphone access denied. Please check browser permissions.');
+      dispatch({ type: 'SET_IS_RECORDING', payload: false });
     }
   };
 
-  // Voice activity detection: updates voiceDetected and auto-stops after silence
-  const startVoiceActivityDetection = () => {
-    if (!analyserRef.current) return;
-    let silenceDuration = 0;
-    const threshold = 0.02; // Adjust for sensitivity
-    const silenceLimit = 2000; // ms before auto-stop
-    const bufferLength = analyserRef.current.fftSize;
-    const dataArray = new Uint8Array(bufferLength);
-
-    const checkVoice = () => {
-      if (analyserRef.current) {
-        analyserRef.current.getByteTimeDomainData(dataArray);
-      }
-      // Calculate average volume
-      let sum = 0;
-      for (let i = 0; i < bufferLength; i++) {
-        const normalized = (dataArray[i] - 128) / 128;
-        sum += Math.abs(normalized);
-      }
-      const avg = sum / bufferLength;
-      if (avg > threshold) {
-        setVoiceDetected(true);
-        silenceDuration = 0;
-      } else {
-        setVoiceDetected(false);
-        silenceDuration += 100;
-      }
-      if (silenceDuration >= silenceLimit) {
-        stopRecording(true);
-        return;
-      }
-      if (isRecording && analyserRef.current) {
-        silenceTimerRef.current = setTimeout(checkVoice, 100);
-      }
-    };
-    checkVoice();
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+    dispatch({ type: 'SET_IS_RECORDING', payload: false });
   };
 
   const sendAudioMessage = async (audioBlob: Blob) => {
-  // Always process audio message
-    setIsProcessing(true);
-    
+    dispatch({ type: 'SET_IS_PROCESSING', payload: true });
+
     const userMessage: Message = {
       id: Date.now().toString(),
       type: 'user',
-      content: 'Voice message...',
-      timestamp: new Date()
+      content: '🎤 Voice Message...',
+      timestamp: new Date(),
     };
-    
-    setMessages(prev => [...prev, userMessage]);
+    dispatch({ type: 'ADD_MESSAGE', payload: userMessage });
 
     try {
       const formData = new FormData();
-      formData.append('audio', audioBlob);
+      formData.append('audio', audioBlob, 'recording.webm');
 
-      const response = await fetch('http://localhost:8000/chat', {
+      const response = await fetch(`${API_BASE}/chat`, {
         method: 'POST',
         body: formData,
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
-      const result: ChatResponse = await response.json();
-      
-      setMessages(prev => 
-        prev.map(msg => 
-          msg.id === userMessage.id 
-            ? { ...msg, content: result.user_message, language: result.language }
-            : msg
-        )
-      );
+      const data: ChatResponse = await response.json();
+
+      dispatch({
+        type: 'UPDATE_USER_VOICE_MESSAGE',
+        payload: { id: userMessage.id, content: data.transcription || 'Voice message', language: data.language },
+      });
 
       const assistantMessage: Message = {
-        id: result.session_id,
+        id: data.session_id,
         type: 'assistant',
-        content: result.response,
-        language: result.language,
-        audioUrl: result.audio_url ? `http://localhost:8000${result.audio_url}` : undefined,
-        timestamp: new Date()
+        content: data.response,
+        timestamp: new Date(),
+        language: data.response_language || data.language,
+        audioUrl: data.audio_url ? `${API_BASE}${data.audio_url}` : undefined,
       };
+      dispatch({ type: 'ADD_MESSAGE', payload: assistantMessage });
 
-      setMessages(prev => [...prev, assistantMessage]);
-
-      if (result.audio_url && !isMuted) {
-        playAudio(`http://localhost:8000${result.audio_url}`, result.session_id);
-      }
-
+      if (assistantMessage.audioUrl) playAudio(assistantMessage.audioUrl, assistantMessage.id);
     } catch (error) {
-      console.error('Error sending audio:', error);
-      const errorMessage: Message = {
-        id: 'error-' + Date.now(),
-        type: 'assistant',
-        content: 'I apologize, but I encountered an issue processing your message. Please try again.',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      console.error('Audio chat error:', error);
+      dispatch({
+        type: 'ADD_MESSAGE',
+        payload: {
+          id: 'error-' + Date.now(),
+          type: 'assistant',
+          content: 'I had trouble understanding your voice. Could you please try again?',
+          timestamp: new Date(),
+        },
+      });
     } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const playAudio = async (url: string, messageId?: string) => {
-    if (isMuted) return;
-    if (currentAudio) {
-      currentAudio.pause();
-      currentAudio.currentTime = 0;
-      setIsPlaying(false);
-      setPlayingMessageId(null);
-    }
-    
-    try {
-      const audio = new Audio(url);
-      audio.volume = 1.0;
-      
-      audio.onended = () => {
-        setCurrentAudio(null);
-        setIsPlaying(false);
-        setPlayingMessageId(null);
-      };
-      
-      await audio.play();
-      setCurrentAudio(audio);
-      setIsPlaying(true);
-      if (messageId) setPlayingMessageId(messageId);
-      
-    } catch (error) {
-      console.error('Audio play failed:', error);
-      setIsPlaying(false);
-      setPlayingMessageId(null);
-      setCurrentAudio(null);
-    }
-  };
-
-  const stopAudio = () => {
-    if (currentAudio) {
-      currentAudio.pause();
-      currentAudio.currentTime = 0;
-      setCurrentAudio(null);
-      setIsPlaying(false);
-      setPlayingMessageId(null);
-    }
-  };
-
-  const toggleMute = () => {
-    setIsMuted(!isMuted);
-    if (currentAudio && !isMuted) {
-      stopAudio();
+      dispatch({ type: 'SET_IS_PROCESSING', payload: false });
     }
   };
 
@@ -459,199 +334,198 @@ export default function ChatPage() {
     if (!isClient) return '';
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
-
-  return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      {/* Header */}
-      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 shadow-sm">
-        <div className="max-w-5xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.push('/')}
-                className="hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Home
-              </Button>
-              <div className="flex items-center gap-3">
-                <Avatar className="h-10 w-10 bg-orange-600">
-                  <AvatarFallback className="text-white font-bold">🕉️</AvatarFallback>
-                </Avatar>
-                <div>
-                  <h1 className="text-lg font-bold text-slate-900 dark:text-white">
-                    Lord Ganesha
-                  </h1>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
-                    Divine guidance in your language
-                  </p>
-                </div>
+// --- UI ---
+return (
+  <div className="flex flex-col h-screen w-screen bg-gradient-to-br from-slate-50 to-orange-50 dark:from-slate-900 dark:to-orange-900/20">
+    {/* Header */}
+    <header className="flex-shrink-0 bg-white/80 dark:bg-slate-950/80 backdrop-blur-lg border-b border-slate-200 dark:border-slate-800 z-10">
+      <div className="max-w-4xl mx-auto px-4 py-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full"
+              onClick={() => router.push('/')}
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div className="flex items-center gap-3">
+              <Avatar className="h-11 w-11 border-2 border-orange-500/50">
+                <AvatarFallback className="bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 text-2xl">
+                  🕉️
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <h1 className="text-lg font-bold text-slate-900 dark:text-white">
+                  Lord Ganesha
+                </h1>
+                <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                  Online
+                </p>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {isPlaying && (
-                <Button variant="outline" size="sm" onClick={stopAudio}>
-                  <VolumeX className="h-4 w-4 mr-1" />
-                  Stop
-                </Button>
-              )}
-              <Button variant="outline" size="sm" onClick={toggleMute}>
-                {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-              </Button>
             </div>
           </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full"
+            onClick={toggleMute}
+          >
+            {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+          </Button>
         </div>
       </div>
+    </header>
 
-      {/* Chat Area */}
-      <div className="max-w-5xl mx-auto px-4 py-6">
-        <Card className="h-[calc(100vh-200px)] flex flex-col shadow-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-          <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
-            {/* Messages */}
-            <ScrollArea className="flex-1 px-4">
-              <div className="space-y-6 py-4 max-w-full">
-                {messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'} w-full`}
-                  >
-                    <div className={`flex gap-3 max-w-[85%] min-w-0 ${message.type === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                      <Avatar className="h-8 w-8 flex-shrink-0 mt-1">
-                        <AvatarFallback className={`${
-                          message.type === 'user' 
-                            ? 'bg-blue-600 text-white text-sm' 
-                            : 'bg-orange-600 text-white text-sm'
-                        }`}>
-                          {message.type === 'user' ? '👤' : '🕉️'}
-                        </AvatarFallback>
-                      </Avatar>
-                      
-                      <div className={`min-w-0 flex-1 ${message.type === 'user' ? 'flex flex-col items-end' : ''}`}>
-                        <div className={`rounded-2xl px-4 py-3 shadow-sm break-words ${
-                          message.type === 'user' 
-                            ? 'bg-blue-600 text-white max-w-full' 
-                            : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 max-w-full'
-                        }`}>
-                          <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
-                            {message.type === 'assistant' ? message.content.replace(/\*/g, '') : message.content}
-                          </p>
-                        </div>
-                        
-                        <div className={`flex items-center gap-2 mt-2 flex-wrap ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-                          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                            {formatTime(message.timestamp)}
-                          </span>
-                          
-                          {message.language && (
-                            <Badge variant="outline" className="text-xs h-5 border-orange-300 text-orange-700 dark:border-orange-700 dark:text-orange-300">
-                              {message.language.toUpperCase()}
-                            </Badge>
-                          )}
-                          
-                          {message.audioUrl && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => playAudio(message.audioUrl!, message.id)}
-                              className="h-6 px-2 text-xs hover:bg-orange-100 dark:hover:bg-orange-900/20 text-orange-600 dark:text-orange-400"
-                            >
-                              <Volume2 className="h-3 w-3 mr-1" />
-                              Play
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                
-                {isProcessing && (
-                  <div className="flex justify-start w-full">
-                    <div className="flex gap-3 max-w-[85%]">
-                      <Avatar className="h-8 w-8 flex-shrink-0 mt-1">
-                        <AvatarFallback className="bg-orange-600 text-white text-sm">🕉️</AvatarFallback>
-                      </Avatar>
-                      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 shadow-sm">
-                        <div className="flex items-center gap-3">
-                          <div className="flex gap-1">
-                            <div className="w-2 h-2 bg-orange-600 rounded-full animate-pulse"></div>
-                            <div className="w-2 h-2 bg-orange-600 rounded-full animate-pulse delay-75"></div>
-                            <div className="w-2 h-2 bg-orange-600 rounded-full animate-pulse delay-150"></div>
-                          </div>
-                          <span className="text-sm text-slate-600 dark:text-slate-400">Lord Ganesha is thinking...</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+    {/* Chat Area */}
+    <main className="flex-1 overflow-y-auto">
+      <ScrollArea className="h-full">
+        <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
+          {messages.map((message) => (
+            <div
+              key={message.id}
+              className={cn(
+                'flex items-end gap-3 w-full',
+                message.type === 'user' ? 'justify-end' : 'justify-start'
+              )}
+            >
+              {message.type === 'assistant' && (
+                <Avatar className="h-8 w-8 flex-shrink-0">
+                  <AvatarFallback className="bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 text-lg">
+                    🕉️
+                  </AvatarFallback>
+                </Avatar>
+              )}
+              <div
+                className={cn(
+                  'flex flex-col gap-1 w-full',
+                  message.type === 'user' ? 'items-end' : 'items-start'
                 )}
-              </div>
-              <div ref={messagesEndRef} />
-            </ScrollArea>
-
-            <Separator />
-
-            {/* Input Area */}
-            <div className="p-4 bg-slate-50 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700">
-              <div className="flex gap-2">
-                <div className="flex-1 flex gap-2">
-                  <Input
-                    placeholder="🕉️ Share your thoughts with Lord Ganesha..."
-                    value={textInput}
-                    onChange={(e) => setTextInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        sendTextMessage();
-                      }
-                    }}
-                    disabled={isProcessing}
-                    className="flex-1 h-10 border-slate-200 dark:border-slate-700 focus:border-orange-500 dark:focus:border-orange-400"
-                  />
-                  <Button
-                    onClick={sendTextMessage}
-                    disabled={isProcessing || !textInput.trim()}
-                    size="sm"
-                    className="h-10 px-4 bg-orange-600 hover:bg-orange-700 text-white"
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </div>
-                
-                <Button
-                  onClick={isRecording ? () => stopRecording() : startRecording}
-                  disabled={isProcessing}
-                  variant={isRecording ? "destructive" : "default"}
-                  size="sm"
-                  className={`h-10 px-4 ${
-                    isRecording 
-                      ? `animate-pulse ${voiceDetected ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}` 
-                      : 'bg-blue-600 hover:bg-blue-700 text-white'
-                  }`}
-                >
-                  {isRecording ? (
-                    <div className="flex items-center gap-1">
-                      <MicOff className="h-4 w-4" />
-                      {voiceDetected && <span className="w-1 h-1 bg-white rounded-full animate-pulse"></span>}
-                    </div>
-                  ) : (
-                    <Mic className="h-4 w-4" />
+              >
+                <div
+                  className={cn(
+                    'max-w-md md:max-w-lg rounded-2xl px-4 py-2.5 shadow-sm break-words',
+                    message.type === 'user'
+                      ? 'bg-blue-600 text-white rounded-br-none'
+                      : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded-bl-none'
                   )}
-                </Button>
-              </div>
-              
-              {isRecording && (
-                voiceDetected ? (
-                  <p className="text-xs flex items-center justify-center gap-2 text-green-700 dark:text-green-300 mt-2">
-                    <strong>🎙️ Voice detected - Keep speaking!</strong>
+                >
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                    {message.content}
                   </p>
-                ) : null
+                </div>
+                <div className="flex items-center gap-2 px-1">
+                  {message.language && (
+                    <Badge variant="outline" className="text-xs h-5">
+                      {message.language.toUpperCase()}
+                    </Badge>
+                  )}
+                  {message.audioUrl && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-1.5 text-xs text-slate-500 hover:text-slate-900"
+                      onClick={() =>
+                        isPlaying && playingMessageId === message.id
+                          ? stopAudio()
+                          : playAudio(message.audioUrl!, message.id)
+                      }
+                    >
+                      {isPlaying && playingMessageId === message.id ? (
+                        <VolumeX className="w-3 h-3 mr-1" />
+                      ) : (
+                        <Volume2 className="w-3 h-3 mr-1" />
+                      )}
+                      Listen
+                    </Button>
+                  )}
+                  <span className="text-xs text-slate-400 dark:text-slate-500">
+                    {formatTime(message.timestamp)}
+                  </span>
+                </div>
+              </div>
+              {message.type === 'user' && (
+                <Avatar className="h-8 w-8 flex-shrink-0">
+                  <AvatarFallback className="bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-lg">
+                    👤
+                  </AvatarFallback>
+                </Avatar>
               )}
             </div>
-          </CardContent>
-        </Card>
+          ))}
+
+          {/* Typing indicator */}
+          {isProcessing && (
+            <div className="flex items-end gap-3 w-full justify-start">
+              <Avatar className="h-8 w-8 flex-shrink-0">
+                <AvatarFallback className="bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 text-lg">
+                  🕉️
+                </AvatarFallback>
+              </Avatar>
+              <div className="max-w-md md:max-w-lg rounded-2xl px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm rounded-bl-none">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+                  <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse delay-150"></div>
+                  <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse delay-300"></div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
+      </ScrollArea>
+    </main>
+
+    {/* Input Footer */}
+    <footer className="flex-shrink-0 bg-white/80 dark:bg-slate-950/80 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800">
+      <div className="max-w-4xl mx-auto px-4 py-3">
+        <div className="flex items-center gap-2">
+          <Input
+            placeholder="Ask Ganesha a question..."
+            value={textInput}
+            onChange={(e) =>
+              dispatch({ type: 'SET_TEXT_INPUT', payload: e.target.value })
+            }
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendTextMessage();
+              }
+            }}
+            disabled={isProcessing || isRecording}
+            className="flex-1 h-11 text-base rounded-full px-5"
+          />
+          <Button
+            size="icon"
+            className="h-11 w-11 rounded-full flex-shrink-0"
+            onClick={sendTextMessage}
+            disabled={isProcessing || isRecording || !textInput.trim()}
+          >
+            <Send className="w-5 h-5" />
+          </Button>
+          <Button
+            size="icon"
+            className={cn(
+              'h-11 w-11 rounded-full flex-shrink-0 transition-colors',
+              isRecording
+                ? 'bg-red-600 hover:bg-red-700'
+                : 'bg-blue-600 hover:bg-blue-700'
+            )}
+            onClick={isRecording ? stopRecording : startRecording}
+            disabled={isProcessing}
+          >
+            {isRecording ? (
+              <MicOff className="w-5 h-5 animate-pulse" />
+            ) : (
+              <Mic className="w-5 h-5" />
+            )}
+          </Button>
+        </div>
       </div>
-    </div>
-  );
+    </footer>
+  </div>
+);
 }
