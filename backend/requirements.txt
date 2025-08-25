@@ -1,23 +1,10 @@
 fastapi
 uvicorn
-python-multipart
-torch
-torchvision
-torchaudio
-transformers
-accelerate
 httpx
-pyttsx3
-pydub
-ffmpeg
-edge-tts
-nest_asyncio
-python-dotenv
-aiofiles
-requests
-urllib3
 langdetect
 indic-transliteration
-pytest
-black
+edge-tts
+pydub
+python-dotenv
+requests
 
