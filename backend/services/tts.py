@@ -12,6 +12,7 @@ from pydub import AudioSegment
 from pydub.effects import normalize, low_pass_filter
 from config import settings
 import sys
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +74,8 @@ class TTSService:
                 os.makedirs(output_dir, exist_ok=True)
             logger.info(f"Generating TTS (Edge TTS) for: '{cleaned_text[:50]}...' (lang: {language})")
             logger.info(f"Edge TTS output path: {output_path}")
-            voice = "en-IN-PrabhatNeural"
+            # Use correct voice for each language
+            voice = self.voice_mapping.get(language, "en-IN-PrabhatNeural")
             import asyncio
             try:
                 loop = asyncio.get_event_loop()
@@ -121,9 +123,14 @@ class TTSService:
 
     def _clean_text_for_tts(self, text: str, language: str) -> str:
         text = " ".join(text.split())
-        import re
+        # Remove URLs and emails
         text = re.sub(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', '', text)
         text = re.sub(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', '', text)
+        # Remove asterisks and all unwanted punctuation
+        text = re.sub(r'[\*]', '', text)
+        text = re.sub(r"[\'\.,!?;:\-\(\)\[\]{}\"/\\|<>~`^_+=]", '', text)
+        # Remove the word 'asterisk' (case-insensitive)
+        text = re.sub(r'\basterisk\b', '', text, flags=re.IGNORECASE)
         return text.strip()
 
     def _enhance_audio(self, input_path: str, output_path: str) -> None:

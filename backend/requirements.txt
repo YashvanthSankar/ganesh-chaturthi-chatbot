@@ -29,6 +29,7 @@ urllib3==2.5.0
 
 # Language Detection
 langdetect==1.0.9
+indic-transliteration==1.0.0
 
 # Development
 pytest==7.4.3

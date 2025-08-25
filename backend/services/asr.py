@@ -23,6 +23,50 @@ class ASRService:
         self.compute_type = "float16" if self.device == "cuda" else "int8"
         self.model = None
         self._initialized = False
+        logger.info(f"ASR Service initialized for device: {self.device}")
+
+    def _transliterate_if_needed(self, text: str) -> str:
+        """
+        Attempt to transliterate Latin-script Indian language text to native script, with improved heuristics
+        """
+        try:
+            from indic_transliteration.sanscript import transliterate, SCHEMES
+            # Try transliterating to all major Indian scripts
+            best_native = text
+            max_non_ascii = 0
+            for script in ["devanagari", "bengali", "tamil", "telugu", "kannada", "malayalam", "gujarati", "oriya", "punjabi"]:
+                native = transliterate(text, "itrans", script)
+                non_ascii = sum(ord(c) > 127 for c in native)
+                if non_ascii > max_non_ascii:
+                    max_non_ascii = non_ascii
+                    best_native = native
+            # If transliteration produced significant non-ASCII, use it
+            if max_non_ascii > 0.2 * len(best_native):
+                return best_native
+        except Exception:
+            pass
+        return text
+import os
+import torch
+import logging
+from typing import Tuple, Optional
+from faster_whisper import WhisperModel
+from langdetect import detect, DetectorFactory
+from langdetect.lang_detect_exception import LangDetectException
+
+from config import settings
+
+# Set seed for consistent language detection
+DetectorFactory.seed = 0
+
+logger = logging.getLogger(__name__)
+
+class ASRService:
+    def __init__(self):
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.compute_type = "float16" if self.device == "cuda" else "int8"
+        self.model = None
+        self._initialized = False
         
         logger.info(f"ASR Service initialized for device: {self.device}")
     
@@ -74,72 +118,67 @@ class ASRService:
                 ),
                 word_timestamps=False
             )
-            
+
             # Extract text and language
             primary_language = info.language
             transcribed_text = " ".join([segment.text.strip() for segment in segments])
-            
+
             if not transcribed_text.strip():
                 raise ValueError("No speech detected in audio")
-            
+
             # Secondary language detection for Indian languages
-            final_language = self._enhance_language_detection(
-                transcribed_text, 
-                primary_language
-            )
-            
+            final_language = self._enhance_language_detection(transcribed_text, primary_language)
+
             logger.info(f"Transcription successful: '{transcribed_text[:50]}...' (lang: {final_language})")
-            
+
             return transcribed_text.strip(), final_language
-            
+
         except Exception as e:
             logger.error(f"Transcription failed: {e}")
             raise Exception(f"Speech recognition error: {str(e)}")
-    
-    def _enhance_language_detection(self, text: str, whisper_lang: str) -> str:
+
+    def _enhance_language_detection(self, text: str, whisper_lang: str, whisper_probs: Optional[dict] = None, langdetect_probs: Optional[dict] = None) -> str:
         """
-        Enhance language detection using multiple methods
+        Language detection using Whisper and langdetect, always choosing the language with the highest probability.
+        whisper_probs: dict of language -> probability from Whisper (if available)
+        langdetect_probs: dict of language -> probability from langdetect (if available)
         """
         try:
-            # Use langdetect as secondary verification
-            detected_lang = detect(text)
-            
-            # Mapping for better Indian language support
-            lang_mapping = {
-                'hi': 'hi',  # Hindi
-                'ta': 'ta',  # Tamil
-                'te': 'te',  # Telugu
-                'kn': 'kn',  # Kannada
-                'ml': 'ml',  # Malayalam
-                'bn': 'bn',  # Bengali
-                'mr': 'mr',  # Marathi
-                'gu': 'gu',  # Gujarati
-                'pa': 'pa',  # Punjabi
-                'ur': 'ur',  # Urdu
-                'en': 'en',  # English
-            }
-            
-            # Prefer Whisper for Indian languages, langdetect for others
-            if whisper_lang in settings.SUPPORTED_LANGUAGES:
-                final_lang = whisper_lang
-            elif detected_lang in lang_mapping:
-                final_lang = detected_lang
+            # First, try transliteration if text is in Latin script
+            transliterated_text = self._transliterate_if_needed(text)
+            text_for_detection = transliterated_text if transliterated_text != text else text
+
+            # Whisper
+            best_whisper_lang = None
+            if whisper_probs:
+                best_whisper_lang = max(whisper_probs.items(), key=lambda x: x[1])[0]
+                if best_whisper_lang in settings.SUPPORTED_LANGUAGES:
+                    return best_whisper_lang
+            elif whisper_lang in settings.SUPPORTED_LANGUAGES:
+                return whisper_lang
+
+            # langdetect
+            from langdetect import detect, LangDetectException
+            best_langdetect_lang = None
+            if langdetect_probs:
+                best_langdetect_lang = max(langdetect_probs.items(), key=lambda x: x[1])[0]
+                if best_langdetect_lang in settings.SUPPORTED_LANGUAGES:
+                    return best_langdetect_lang
             else:
-                final_lang = whisper_lang if whisper_lang else 'en'
-            
-            # Ensure we support the language
-            if final_lang not in settings.SUPPORTED_LANGUAGES:
-                final_lang = 'en'  # Default to English
-                
-            return final_lang
-            
-        except LangDetectException:
-            # Fallback to Whisper detection
-            return whisper_lang if whisper_lang in settings.SUPPORTED_LANGUAGES else 'en'
-    
-    def get_supported_languages(self) -> dict:
-        """Return supported languages"""
-        return settings.SUPPORTED_LANGUAGES
+                try:
+                    langdetect_lang = detect(text_for_detection)
+                    if langdetect_lang in settings.SUPPORTED_LANGUAGES:
+                        return langdetect_lang
+                except Exception:
+                    pass
+
+            # Fallback to English
+            return 'en'
+        except Exception as e:
+            logger.error(f"Language detection failed: {e}")
+            if whisper_lang in settings.SUPPORTED_LANGUAGES:
+                return whisper_lang
+            return 'en'
 
 # Global ASR service instance
 asr_service = ASRService()

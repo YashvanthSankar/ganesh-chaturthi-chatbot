@@ -182,9 +182,10 @@ async def voice_chat(
         audio_filename = f"{session_id}_response.wav"
         audio_output_path = OUTPUT_DIR / audio_filename
         
+        # Pass the full response and detected language to TTS for correct voice
         tts_success = tts_service.generate_speech(
-            response_text, 
-            detected_language, 
+            response_text,
+            detected_language,
             str(audio_output_path)
         )
         

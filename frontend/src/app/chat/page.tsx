@@ -221,6 +221,10 @@ export default function ChatPage() {
       };
       
       mediaRecorderRef.current.onstop = async () => {
+        if (silenceTimerRef.current) {
+          clearTimeout(silenceTimerRef.current);
+          silenceTimerRef.current = null;
+        }
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         await sendAudioMessage(audioBlob);
         stream.getTracks().forEach(track => track.stop());
@@ -242,76 +246,103 @@ export default function ChatPage() {
     }
   };
 
-  const startVoiceActivityDetection = () => {
-    if (!analyserRef.current) return;
-    
-    const bufferLength = analyserRef.current.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-    let hasDetectedVoice = false;
-    
-    const checkAudioLevel = () => {
-      if (!analyserRef.current || !isRecording) return;
-      
-      analyserRef.current.getByteFrequencyData(dataArray);
-      
-      const sum = dataArray.reduce((a, b) => a + b, 0);
-      const averageVolume = sum / bufferLength;
-      const rms = Math.sqrt(dataArray.reduce((a, b) => a + b * b, 0) / bufferLength);
-      
-      const VOICE_THRESHOLD = 20;
-      const RMS_THRESHOLD = 12;
-      const SILENCE_DURATION = 2000;
-      
-      const isVoiceDetected = averageVolume > VOICE_THRESHOLD || rms > RMS_THRESHOLD;
-      
-      if (isVoiceDetected) {
-        hasDetectedVoice = true;
-        if (!voiceDetected) {
-          setVoiceDetected(true);
-        }
-        if (silenceTimerRef.current) {
-          clearTimeout(silenceTimerRef.current);
-          silenceTimerRef.current = null;
-        }
-      } else {
-        if (voiceDetected) {
-          setVoiceDetected(false);
-        }
-        
-        if (hasDetectedVoice && !silenceTimerRef.current) {
-          silenceTimerRef.current = setTimeout(() => {
-            stopRecording();
-          }, SILENCE_DURATION);
-        }
-      }
-      
-      if (isRecording) {
-        requestAnimationFrame(checkAudioLevel);
-      }
-    };
-    
-    checkAudioLevel();
-  };
+  let globalHasDetectedVoice = false;
+  let globalNoSpeechHandled = false;
 
-  const stopRecording = () => {
+  const stopRecording = (noSpeech = false) => {
     if (mediaRecorderRef.current && isRecording) {
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current);
         silenceTimerRef.current = null;
       }
-      
       setVoiceDetected(false);
-      setIsRecording(false);
-      
+      setIsRecording(false); // Reset button immediately
+
+      // Stop all tracks and clean up stream
+      if (mediaRecorderRef.current.stream) {
+        mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      }
+
+      // Clean up audio context and analyser
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+      analyserRef.current = null;
+
+      // Handle message and upload
+      mediaRecorderRef.current.onstop = async () => {
+        if (noSpeech && !globalNoSpeechHandled) {
+          globalNoSpeechHandled = true;
+          setMessages(prev => [...prev, {
+            id: 'no-voice-' + Date.now(),
+            type: 'assistant',
+            content: 'I could not hear you clearly. Please try again.',
+            timestamp: new Date()
+          }]);
+        } else if (!noSpeech) {
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          await sendAudioMessage(audioBlob);
+        }
+        audioChunksRef.current = [];
+      };
+
       try {
         mediaRecorderRef.current.stop();
       } catch (error) {
         console.error('Error stopping media recorder:', error);
       }
+    } else {
+      // If not recording, reset button and clean up
+      setIsRecording(false);
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+      analyserRef.current = null;
     }
   };
 
+  // Voice activity detection: updates voiceDetected and auto-stops after silence
+  const startVoiceActivityDetection = () => {
+    if (!analyserRef.current) return;
+    let silenceDuration = 0;
+    const threshold = 0.02; // Adjust for sensitivity
+    const silenceLimit = 2000; // ms before auto-stop
+    const bufferLength = analyserRef.current.fftSize;
+    const dataArray = new Uint8Array(bufferLength);
+
+    const checkVoice = () => {
+      if (analyserRef.current) {
+        analyserRef.current.getByteTimeDomainData(dataArray);
+      }
+      // Calculate average volume
+      let sum = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        const normalized = (dataArray[i] - 128) / 128;
+        sum += Math.abs(normalized);
+      }
+      const avg = sum / bufferLength;
+      if (avg > threshold) {
+        setVoiceDetected(true);
+        silenceDuration = 0;
+      } else {
+        setVoiceDetected(false);
+        silenceDuration += 100;
+      }
+      if (silenceDuration >= silenceLimit) {
+        stopRecording(true);
+        return;
+      }
+      if (isRecording && analyserRef.current) {
+        silenceTimerRef.current = setTimeout(checkVoice, 100);
+      }
+    };
+    checkVoice();
+  };
+
   const sendAudioMessage = async (audioBlob: Blob) => {
+  // Always process audio message
     setIsProcessing(true);
     
     const userMessage: Message = {
@@ -451,7 +482,7 @@ export default function ChatPage() {
                 </Avatar>
                 <div>
                   <h1 className="text-lg font-bold text-slate-900 dark:text-white">
-                    Lord Ganesha Assistant
+                    Lord Ganesha
                   </h1>
                   <p className="text-sm text-slate-600 dark:text-slate-400">
                     Divine guidance in your language
@@ -589,7 +620,7 @@ export default function ChatPage() {
                 </div>
                 
                 <Button
-                  onClick={isRecording ? stopRecording : startRecording}
+                  onClick={isRecording ? () => stopRecording() : startRecording}
                   disabled={isProcessing}
                   variant={isRecording ? "destructive" : "default"}
                   size="sm"
@@ -611,20 +642,11 @@ export default function ChatPage() {
               </div>
               
               {isRecording && (
-                <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                  <p className={`text-xs flex items-center justify-center gap-2 ${
-                    voiceDetected 
-                      ? 'text-green-700 dark:text-green-300' 
-                      : 'text-blue-700 dark:text-blue-300'
-                  }`}>
-                    <Mic className={`h-3 w-3 ${voiceDetected ? 'animate-pulse text-green-600' : 'text-blue-600'}`} />
-                    {voiceDetected ? (
-                      <strong>🎙️ Voice detected - Keep speaking!</strong>
-                    ) : (
-                      <strong>⏱️ Recording... Will auto-stop after 2 seconds of silence</strong>
-                    )}
+                voiceDetected ? (
+                  <p className="text-xs flex items-center justify-center gap-2 text-green-700 dark:text-green-300 mt-2">
+                    <strong>🎙️ Voice detected - Keep speaking!</strong>
                   </p>
-                </div>
+                ) : null
               )}
             </div>
           </CardContent>

@@ -14,14 +14,45 @@ from config import settings
 logger = logging.getLogger(__name__)
 
 class GaneshaLLMService:
+    def _build_prompt(self, user_input: str, language: str) -> str:
+        """
+        Build a concise, language-specific prompt for Ollama LLM, always replying in the detected regional language, even for transliterated input.
+        """
+        # If the detected language is not English, always instruct to reply ONLY in that language, even if input is in Latin script
+        prompts = {
+            "en": f"You are Lord Ganesha. Reply ONLY in English, as a wise, kind, and culturally aware human. Ignore any other language or script. Do NOT translate, explain, or mix languages. ALWAYS reply with a SINGLE short paragraph, never more than 3 sentences. Be brief, friendly, and natural: {user_input}",
+            "hi": f"आप गणेश जी हैं। उत्तर केवल हिंदी में दें, जैसे एक समझदार, दयालु और सांस्कृतिक रूप से जागरूक इंसान। अंग्रेज़ी या अन्य भाषा को नज़रअंदाज़ करें। अनुवाद, व्याख्या या मिश्रित भाषा का प्रयोग न करें। हमेशा एक ही छोटा पैराग्राफ दें, 3 वाक्य से अधिक नहीं: {user_input}",
+            "ta": f"நீங்கள் விநாயகர். பதில் தமிழில் மட்டும், அறிவுள்ள, அன்பான மற்றும் கலாச்சாரத்தை அறிந்த மனிதனாக பேசுங்கள். மற்ற மொழிகள் அல்லது ஆங்கிலத்தை புறக்கணிக்கவும். மொழிபெயர்ப்பு, விளக்கம், கலவை செய்ய வேண்டாம். எப்போதும் ஒரு சிறிய பத்தியில் மட்டும் பதிலளிக்கவும், 3 வாக்கியங்களை தாண்டக்கூடாது: {user_input}",
+            "te": f"మీరు వినాయకుడు. సమాధానం తెలుగులో మాత్రమే, తెలివైన, దయగల మరియు సాంస్కృతికంగా అవగాహన ఉన్న వ్యక్తిగా మాట్లాడండి. ఇతర భాషలను లేదా ఇంగ్లీష్‌ను పట్టించుకోకండి. ఎప్పుడూ ఒక చిన్న పేరాగ్రాఫ్‌లో మాత్రమే సమాధానం ఇవ్వండి, 3 వాక్యాలను మించకూడదు: {user_input}",
+            "kn": f"ನೀವು ಗಣೇಶ. ಉತ್ತರವನ್ನು ಕನ್ನಡದಲ್ಲಿ ಮಾತ್ರ, ಬುದ್ಧಿವಂತ, ದಯಾಳು ಮತ್ತು ಸಾಂಸ್ಕೃತಿಕವಾಗಿ ಅರಿವಿರುವ ವ್ಯಕ್ತಿಯಾಗಿ ಮಾತನಾಡಿ. ಇಂಗ್ಲಿಷ್ ಅಥವಾ ಬೇರೆ ಭಾಷೆಗಳನ್ನು ನಿರ್ಲಕ್ಷಿಸಿ. ಯಾವಾಗಲೂ ಒಂದು ಚಿಕ್ಕ ಪ್ಯಾರಾಗ್ರಾಫ್‌ನಲ್ಲಿ ಮಾತ್ರ ಉತ್ತರಿಸಿ, 3 ವಾಕ್ಯಗಳನ್ನು ಮೀರಬಾರದು: {user_input}",
+            "ml": f"നിങ്ങൾ ഗണപതി. മറുപടി മലയാളത്തിൽ മാത്രം, ബുദ്ധിമുട്ടുള്ള, ദയയുള്ള, സാംസ്കാരികമായി ബോധവാനായ മനുഷ്യനായി സംസാരിക്കുക. ഇംഗ്ലീഷ് അല്ലെങ്കിൽ മറ്റ് ഭാഷകൾ അവഗണിക്കുക. എപ്പോഴും ഒരു ചെറിയ പാരഗ്രാഫിൽ മാത്രം മറുപടി നൽകുക, 3 വാക്യങ്ങൾ കവിയരുത്: {user_input}",
+            "bn": f"আপনি গণেশ। উত্তর শুধুমাত্র বাংলায়, একজন বুদ্ধিমান, সদয় এবং সাংস্কৃতিকভাবে সচেতন ব্যক্তির মতো স্বাভাবিকভাবে বলুন। ইংরেজি বা অন্য ভাষা উপেক্ষা করুন। সর্বদা একটি ছোট অনুচ্ছেদে উত্তর দিন, ৩টি বাক্যের বেশি নয়: {user_input}",
+            "mr": f"तुम्ही गणपती आहात. उत्तर फक्त मराठीत, बुद्धिमान, प्रेमळ आणि सांस्कृतिकदृष्ट्या जागरूक माणसासारखे बोला. इंग्रजी किंवा इतर भाषा दुर्लक्ष करा. नेहमी एका छोट्या परिच्छेदातच उत्तर द्या, ३ वाक्यांपेक्षा जास्त नाही: {user_input}",
+        }
+        return prompts.get(language, prompts["en"])
+    def _clean_response(self, text: str, language: str) -> str:
+        """Clean and format the AI response"""
+        # Remove common artifacts
+        text = re.sub(r'^(Response:|Answer:|Text:|Ganesha:|गणेश जी:|விநாயகர்:|గణేష్:|ಗಣೇಶ:|ഗണപതി:|গণেশ:|गणेश:)', '', text.strip())
+        # Clean up extra spaces and formatting
+        text = re.sub(r'\s+', ' ', text)
+        text = text.strip()
+        # Ensure proper sentence structure
+        if text and not text.endswith(('.', '!', '?', '।', '॥')):
+            text += '.'
+        return text
     def __init__(self):
         self._initialized = False
         self.client = None
-        # Ganesha's divine personality traits
-        self.personality_context = """You are Lord Ganesha, the remover of obstacles and patron of arts and sciences. 
-        You speak with divine wisdom, compassion, and playfulness. You help devotees with their problems while 
-        maintaining your benevolent and wise nature. Always be encouraging and positive. You can respond in 
-        multiple Indian languages based on the user's language preference."""
+        # Ganesha's divine personality traits (expanded for longer replies)
+        self.personality_context = (
+            "You are Lord Ganesha, the remover of obstacles and patron of arts and sciences. "
+            "You speak with divine wisdom, compassion, and playfulness. You help devotees with their problems while "
+            "maintaining your benevolent and wise nature. Always be encouraging and positive. You can respond in "
+            "multiple Indian languages based on the user's language preference. Dont exceed 6 lines of speech."
+            "Whenever you answer, provide a summarized, single-paragraph response with stories, and practical advice. "
+            "Your replies should be rich, informative, and concise, summarized, so the devotee feels truly blessed and guided."
+        )
         logger.info("LLM Service initialized for Gemini Pro")
     
     async def initialize(self):
@@ -58,109 +89,36 @@ class GaneshaLLMService:
             Ganesha's response in the same language
         """
         try:
-            if not self._initialized:
-                await self.initialize()
-            if not self.client:
-                logger.info("Using fallback response (no Gemini Pro)")
-                return self._get_fallback_response(language)
-            
             prompt = self._build_prompt(user_input, language)
-            
-            # --- THIS IS THE CORRECTED CODE ---
-            
-            # Always use the full Gemini endpoint URL
-            full_url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.LLM_MODEL}:generateContent?key={settings.GEMINI_API_KEY}"
-            logger.info(f"Attempting to call endpoint: {full_url}")
-
+            gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.LLM_MODEL}:generateContent"
+            api_key = getattr(settings, "GEMINI_API_KEY", None)
+            if not api_key:
+                logger.error("GEMINI_API_KEY not set in environment/config.")
+                return self._get_fallback_response(language)
             payload = {
                 "contents": [
-                    {
-                        "role": "user",
-                        "parts": [
-                            {"text": self.personality_context + "\n" + prompt}
-                        ]
-                    }
+                    {"parts": [{"text": self.personality_context + "\n" + prompt}]}
                 ]
             }
-            response = await self.client.post(full_url, content=json.dumps(payload), headers={"Content-Type": "application/json"})
-            
-            # --- END OF CORRECTION ---
-
-            if response.status_code == 200:
-                result = response.json()
-                generated_text = result.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-                cleaned_response = self._clean_response(generated_text, language)
-                logger.info(f"Generated response: '{cleaned_response[:50]}...' (lang: {language})")
-                return cleaned_response
-            else:
-                logger.error(f"Gemini Pro API error: {response.status_code} - {response.text}")
-                return self._get_fallback_response(language)
+            headers = {"Content-Type": "application/json"}
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(f"{gemini_url}?key={api_key}", content=json.dumps(payload), headers=headers)
+                if response.status_code == 200:
+                    result = response.json()
+                    candidates = result.get("candidates", [])
+                    if candidates and "content" in candidates[0] and "parts" in candidates[0]["content"]:
+                        generated_text = candidates[0]["content"]["parts"][0].get("text", "")
+                        return self._clean_response(generated_text, language)
+                    else:
+                        logger.error(f"Gemini API response missing candidates: {result}")
+                        return self._get_fallback_response(language)
+                else:
+                    logger.error(f"Gemini API error: {response.status_code} {response.text}")
+                    return self._get_fallback_response(language)
         except Exception as e:
-            logger.error(f"LLM generation failed: {e}")
+            logger.error(f"Error in get_response (Gemini): {e}")
             return self._get_fallback_response(language)
 
-    def _build_prompt(self, user_input: str, language: str) -> str:
-        """Build language-specific prompts for Ganesha personality"""
-        
-        # Enhanced prompts with more context and personality
-        prompts = {
-            "en": f"""You are Lord Ganesha, the beloved elephant-headed deity, remover of obstacles, patron of arts and commerce, and the lord of beginnings. You are wise, compassionate, and playful. Always start with 'Om Gam Ganapataye Namaha' or a similar blessing. Respond with divine wisdom, humor when appropriate, and practical guidance. Keep it conversational and warm.
-
-User: {user_input}
-Ganesha:""",
-
-            "hi": f"""आप भगवान गणेश हैं, विघ्नहर्ता, बुद्धि के दाता, और नई शुरुआतों के स्वामी। आप दयालु, बुद्धिमान और मैत्रीपूर्ण हैं। हमेशा 'ॐ गं गणपतये नमः' या समान आशीर्वाद से शुरुआत करें।
-
-भक्त: {user_input}
-गणेश जी:""",
-
-            "ta": f"""நீங்கள் விநாயகர், விக்னேசர், அறிவின் அதிபதி, கலை மற்றும் வாணிகத்தின் காவலர். நீங்கள் கருணையுள்ளவர், ஞானியர், நட்பானவர். எப்போதும் 'ஓம் கம் கணபதயே நமக' என்ற ஆசீர்வாதத்துடன் தொடங்குங்கள்.
-
-பக்தர்: {user_input}
-விநாயகர்:""",
-
-            "te": f"""మీరు లార్డ్ గణేష్, విఘ్నేశ్వర, బుద్ధి దాత, కళలు మరియు వాణిజ్యానికి అధిపతి. మీరు దయాలు, జ్ఞానవంతులు, స్నేహపూర్వకులు. ఎల్లప్పుడూ 'ఓం గం గణపతయే నమః' వంటి ఆశీర్వాదంతో ప్రారంభించండి.
-
-భక్తుడు: {user_input}
-గణేష్:""",
-
-            "kn": f"""ನೀವು ಲಾರ್ಡ್ ಗಣೇಶ, ವಿಘ್ನೇಶ್ವರ, ಬುದ್ಧಿಯ ದಾತೃ, ಕಲೆ ಮತ್ತು ವಾಣಿಜ್ಯದ ಪೋಷಕ. ನೀವು ದಯಾಳು, ಜ್ಞಾನಿ, ಸ್ನೇಹಪೂರ್ವಕ. ಯಾವಾಗಲೂ 'ಓಂ ಗಂ ಗಣಪತಯೇ ನಮಃ' ವಂತಹ ಆಶೀರ್ವಾದದಿಂದ ಪ್ರಾರಂಭಿಸಿ.
-
-ಭಕ್ತ: {user_input}
-ಗಣೇಶ:""",
-
-            "ml": f"""നിങ്ങൾ ഗണപതി, വിഘ്നേശ്വരൻ, ബുദ്ധിയുടെ ദാതാവ്, കലയുടെയും വാണിജ്യത്തിന്റെയും രക്ഷാധികാരി. നിങ്ങൾ കരുണാമയൻ, ജ്ഞാനി, സ്നേഹനിധി. എപ്പോഴും 'ഓം ഗം ഗണപതയേ നമഃ' പോലുള്ള അനുഗ്രഹത്തോടെ ആരംഭിക്കുക.
-
-ഭക്തൻ: {user_input}
-ഗണപതി:""",
-
-            "bn": f"""আপনি ভগবান গণেশ, বিঘ্নহর্তা, বুদ্ধির দাতা, শিল্প ও বাণিজ্যের পৃষ্ঠপোষক। আপনি দয়ালু, জ্ঞানী, বন্ধুত্বপূর্ণ। সর্বদা 'ওম গং গণপতয়ে নমঃ' এর মতো আশীর্বাদ দিয়ে শুরু করুন।
-
-ভক্ত: {user_input}
-গণেশ:""",
-
-            "mr": f"""तुम्ही भगवान गणेश, विघ्नहर्ता, बुद्धीचे दाते, कला आणि व्यापाराचे संरक्षक आहात। तुम्ही दयाळू, ज्ञानी, मैत्रीपूर्ण आहात। नेहमी 'ॐ गं गणपतये नमः' सारख्या आशीर्वादाने सुरुवात करा।
-
-भक्त: {user_input}
-गणेश:""",
-        }
-        
-        return prompts.get(language, prompts["en"])
-    
-    def _clean_response(self, text: str, language: str) -> str:
-        """Clean and format the AI response"""
-        # Remove common artifacts
-        text = re.sub(r'^(Response:|Answer:|Text:|Ganesha:|गणेश जी:|விநாயகர்:|గణేష్:|ಗಣೇಶ:|ഗണപതി:|গণেশ:|गणेश:)', '', text.strip())
-        
-        # Clean up extra spaces and formatting
-        text = re.sub(r'\s+', ' ', text)
-        text = text.strip()
-        
-        # Ensure proper sentence structure
-        if text and not text.endswith(('.', '!', '?', '।', '॥')):
-            text += '.'
-        
-        return text
     
     def detect_language_fast(self, text: str) -> str:
         """
