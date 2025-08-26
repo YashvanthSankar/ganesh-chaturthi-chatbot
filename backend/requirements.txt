@@ -3,6 +3,7 @@ uvicorn
 python-multipart
 torch
 torchvision
+faster-whisper
 torchaudio
 transformers
 accelerate
