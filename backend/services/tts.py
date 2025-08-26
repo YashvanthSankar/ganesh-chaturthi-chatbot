@@ -6,7 +6,7 @@ import os
 import logging
 import edge_tts
 from pydub import AudioSegment
-from pydub.effects import normalize, low_pass_filter
+# ❌ removed normalize, low_pass_filter (they rely on audioop, not available in Python 3.11+)
 from config import settings
 import sys
 import re
@@ -134,8 +134,11 @@ class TTSService:
         try:
             audio = AudioSegment.from_file(input_path)
             enhanced_audio = self._apply_divine_effects(audio)
-            enhanced_audio.export(output_path, format="wav", 
-                                parameters=["-ac", "1", "-ar", "44100", "-acodec", "pcm_s16le"])
+            enhanced_audio.export(
+                output_path, 
+                format="wav",
+                parameters=["-ac", "1", "-ar", "44100", "-acodec", "pcm_s16le"]
+            )
             logger.info("✅ Audio enhancement applied successfully")
         except Exception as e:
             logger.warning(f"Audio enhancement failed, using simple conversion: {e}")
@@ -154,8 +157,8 @@ class TTSService:
 
     def _apply_divine_effects(self, audio: AudioSegment) -> AudioSegment:
         try:
-            audio = audio + 10
-            return audio
+            # Just boost volume (safe, no audioop dependency)
+            return audio + 10
         except Exception as e:
             logger.warning(f"Divine effects failed, using basic volume boost: {e}")
             return audio + 10
