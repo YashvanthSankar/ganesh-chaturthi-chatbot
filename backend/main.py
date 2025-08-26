@@ -15,7 +15,8 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 
-from config import Settings
+
+from config import settings
 from services import asr_service, llm_service, tts_service
 
 # Configure logging
@@ -37,7 +38,7 @@ app = FastAPI(
 # CORS configuration for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.allowed_origins,
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -92,7 +93,7 @@ async def root():
     return {
         "message": "🕉️ Welcome to Lord Ganesha Voice Chatbot",
         "description": "Ask questions and receive divine wisdom in multiple languages",
-        "supported_languages": list(Settings.SUPPORTED_LANGUAGES.keys()),
+    "supported_languages": list(settings.SUPPORTED_LANGUAGES.keys()),
         "endpoints": {
             "chat": "/chat (POST) - Voice chat with audio file",
             "text_chat": "/text-chat (POST) - Text-based chat",
@@ -269,8 +270,8 @@ async def get_supported_languages():
     Get list of supported languages
     """
     return {
-        "supported_languages": Settings.SUPPORTED_LANGUAGES,
-        "total_count": len(Settings.SUPPORTED_LANGUAGES),
+    "supported_languages": settings.SUPPORTED_LANGUAGES,
+    "total_count": len(settings.SUPPORTED_LANGUAGES),
         "message": "🌍 Ganesha speaks many languages"
     }
 
