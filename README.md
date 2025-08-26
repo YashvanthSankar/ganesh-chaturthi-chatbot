@@ -1,13 +1,8 @@
-
 # G.O.A.T Bot – Ganapathi Of All Time
 
 **A Divine Dialogue with Lord Ganesha, Powered by AI**
 
-G.O.A.T Bot is a multilingual, interactive chatbot that lets you converse with Lord Ganesha through text and voice. Powered by FastAPI, Gemini API, and Edge TTS, it provides real-time speech recognition, philosophical responses, and divine voice output in 11+ Indian languages. The project is designed for the Ganesh Chaturthi Challenge, blending ancient wisdom with modern technology for a truly immersive and uplifting experience.
-
-Submission for the Ganesh Chaturthi Challenge
-
-## This project is a fully interactive, multilingual voice chatbot that provides a sacred space for users to share their worries and receive wisdom from an AI embodiment of Lord Ganesha. It bridges ancient philosophy with modern technology to create a spiritually uplifting and technically impressive experience.
+G.O.A.T Bot is a multilingual, interactive chatbot that lets you converse with Lord Ganesha through text and voice. Powered by FastAPI, Gemini API, and Edge TTS, it provides real-time speech recognition, philosophical responses, and divine voice output in 11+ Indian languages along with background animation. The project is designed for the Ganesh Chaturthi Challenge, blending ancient wisdom with modern technology for a truly immersive and uplifting experience.
 
 ## Key Features
 
@@ -124,6 +119,7 @@ WHISPER_MODEL=base
 ```
 
 > Set `GEMINI_API_KEY` to your actual Gemini API key. Update URLs for production as needed.
+
 ### 3. Install Dependencies
 
 #### Frontend
