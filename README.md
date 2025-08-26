@@ -1,6 +1,10 @@
+
 # G.O.A.T Bot – Ganapathi Of All Time
 
-A Divine Dialogue with Lord Ganesha, Powered by AI  
+**A Divine Dialogue with Lord Ganesha, Powered by AI**
+
+G.O.A.T Bot is a multilingual, interactive chatbot that lets you converse with Lord Ganesha through text and voice. Powered by FastAPI, Gemini API, and Edge TTS, it provides real-time speech recognition, philosophical responses, and divine voice output in 11+ Indian languages. The project is designed for the Ganesh Chaturthi Challenge, blending ancient wisdom with modern technology for a truly immersive and uplifting experience.
+
 Submission for the Ganesh Chaturthi Challenge
 
 ## This project is a fully interactive, multilingual voice chatbot that provides a sacred space for users to share their worries and receive wisdom from an AI embodiment of Lord Ganesha. It bridges ancient philosophy with modern technology to create a spiritually uplifting and technically impressive experience.
@@ -103,13 +107,23 @@ Set this to your backend URL in production.
 #### Backend (`backend/.env`)
 
 ```
+AUDIO_FORMAT=wav
+CORS_ORIGINS='["http://localhost:3000", "http://127.0.0.1:3000"]'
+DEBUG=True
 FRONTEND_URL=http://localhost:3000
-GEMINI_API_KEY=your-google-gemini-api-key
-# ...other variables as needed
+GEMINI_API_KEY=your-gemini-api-key
+HOST=0.0.0.0
+LLM_MODEL=gemini-2.0-flash
+MAX_FILE_SIZE=50000000
+OUTPUT_DIR=outputs
+PORT=8000
+SAMPLE_RATE=16000
+TTS_LANG_DEFAULT=en
+UPLOAD_DIR=uploads
+WHISPER_MODEL=base
 ```
 
-Set `FRONTEND_URL` to your deployed frontend URL in production.
-
+> Set `GEMINI_API_KEY` to your actual Gemini API key. Update URLs for production as needed.
 ### 3. Install Dependencies
 
 #### Frontend
@@ -131,7 +145,7 @@ pip install -r requirements.txt
 #### Backend
 
 ```bash
-uvicorn main:app --host 0.0.0.0 --port 8000
+python main.py
 ```
 
 #### Frontend
@@ -144,13 +158,4 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## Deployment
-
-- Push your code to a GitHub repository.
-- Deploy your frontend and backend to your chosen cloud platform.
-- Update environment variables for your deployed domains.
-- Ensure ffmpeg is installed on your backend server.
-
----
-
-Made with devotion by Yashvanth
+Made with devotion by Yashvanth S
