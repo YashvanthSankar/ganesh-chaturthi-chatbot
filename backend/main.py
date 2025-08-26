@@ -216,7 +216,7 @@ async def text_chat(
     language: Optional[str] = Form(None, description="Preferred response language")
 ):
     """
-    Text-only chat endpoint
+    Text-only chat endpoint that now returns audio as well.
     """
     session_id = str(uuid.uuid4())
     logger.info(f"💬 New text chat session: {session_id}")
@@ -225,29 +225,44 @@ async def text_chat(
         if not text.strip():
             raise HTTPException(status_code=400, detail="Please provide some text")
         
-        logger.info(f"📝 User message: {text}")
+        detected_language = language or llm_service.detect_language_fast(text)
+        logger.info(f"📝 User message: '{text}' (lang: {detected_language})")
         
-        # Generate LLM Response
+        # Step 1: Generate LLM Response
         logger.info("🧠 Generating Ganesha's response...")
-        response_text = await llm_service.get_response(text, language or "en")
+        response_text = await llm_service.get_response(text, detected_language)
         
-        logger.info(f"💭 Ganesha responds: {response_text}")
+        logger.info(f"💭 Ganesha responds ({detected_language}): {response_text}")
         
+        # Step 2: Text-to-Speech (TTS)
+        logger.info("🎵 Converting text to divine speech...")
+        audio_filename = f"{session_id}_response.wav"
+        audio_output_path = OUTPUT_DIR / audio_filename
+        
+        tts_success = await tts_service.generate_speech(
+            response_text,
+            detected_language,
+            str(audio_output_path)
+        )
+        
+        audio_url = f"/outputs/{audio_filename}" if tts_success else None
+        if not tts_success:
+            logger.warning("TTS failed, returning text-only response for text-chat")
+
         response = {
             "session_id": session_id,
             "user_message": text,
             "response": response_text,
-            "response_language": language or "en",
+            "response_language": detected_language,
+            "audio_url": audio_url,
             "message": "🕉️ Ganesha's wisdom shared"
         }
         return response
         
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"❌ Text chat error: {e}")
         raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
-
+    
 @app.get("/audio/{filename}")
 async def get_audio(filename: str):
     """

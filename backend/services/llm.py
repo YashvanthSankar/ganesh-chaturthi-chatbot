@@ -80,44 +80,41 @@ class GaneshaLLMService:
     
     async def get_response(self, user_input: str, language: str = "en") -> str:
         """
-        Generate Ganesha's response using Gemini Pro
-        Args:
-            user_input: User's message
-            language: Detected language code
-        Returns:
-            Ganesha's response in the same language
+        Generate Ganesha's response using the initialized Gemini Pro client.
         """
+        if not self.client:
+            logger.error("LLM client not initialized.")
+            return self._get_fallback_response(language)
+
         try:
             prompt = self._build_prompt(user_input, language)
             gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.LLM_MODEL}:generateContent"
-            api_key = getattr(settings, "GEMINI_API_KEY", None)
-            if not api_key:
-                logger.error("GEMINI_API_KEY not set in environment/config.")
-                return self._get_fallback_response(language)
+            api_key = settings.GEMINI_API_KEY
+
             payload = {
                 "contents": [
                     {"parts": [{"text": self.personality_context + "\n" + prompt}]}
                 ]
             }
             headers = {"Content-Type": "application/json"}
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(f"{gemini_url}?key={api_key}", content=json.dumps(payload), headers=headers)
-                if response.status_code == 200:
-                    result = response.json()
-                    candidates = result.get("candidates", [])
-                    if candidates and "content" in candidates[0] and "parts" in candidates[0]["content"]:
-                        generated_text = candidates[0]["content"]["parts"][0].get("text", "")
-                        return self._clean_response(generated_text, language)
-                    else:
-                        logger.error(f"Gemini API response missing candidates: {result}")
-                        return self._get_fallback_response(language)
+            
+            response = await self.client.post(f"{gemini_url}?key={api_key}", content=json.dumps(payload), headers=headers)
+            
+            if response.status_code == 200:
+                result = response.json()
+                candidates = result.get("candidates", [])
+                if candidates and "content" in candidates[0] and "parts" in candidates[0]["content"]:
+                    generated_text = candidates[0]["content"]["parts"][0].get("text", "")
+                    return self._clean_response(generated_text, language)
                 else:
-                    logger.error(f"Gemini API error: {response.status_code} {response.text}")
+                    logger.error(f"Gemini API response missing candidates: {result}")
                     return self._get_fallback_response(language)
+            else:
+                logger.error(f"Gemini API error: {response.status_code} {response.text}")
+                return self._get_fallback_response(language)
         except Exception as e:
             logger.error(f"Error in get_response (Gemini): {e}")
             return self._get_fallback_response(language)
-
     
     def detect_language_fast(self, text: str) -> str:
         """

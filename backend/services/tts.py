@@ -6,7 +6,7 @@ import os
 import logging
 import edge_tts
 from pydub import AudioSegment
-# ❌ removed normalize, low_pass_filter (they rely on audioop, not available in Python 3.11+)
+from pydub.effects import normalize, low_pass_filter
 from config import settings
 import sys
 import re
@@ -53,7 +53,7 @@ class TTSService:
     def is_initialized(self) -> bool:
         return self._initialized
 
-    def generate_speech(self, text: str, language: str, output_path: str) -> bool:
+    async def generate_speech(self, text: str, language: str, output_path: str) -> bool:
         """
         Generate speech from text using Edge TTS (Indian male voice)
         """
@@ -61,46 +61,31 @@ class TTSService:
             if language not in self.language_mapping:
                 logger.warning(f"Language '{language}' not supported, using English")
                 language = "en"
+            
             cleaned_text = self._clean_text_for_tts(text, language)
             if not cleaned_text.strip():
                 logger.error(f"Input text is empty after cleaning: '{text}'")
                 return False
-            # Ensure output directory exists
+
             output_dir = os.path.dirname(output_path)
-            if output_dir and not os.path.exists(output_dir):
+            if output_dir:
                 os.makedirs(output_dir, exist_ok=True)
+
             logger.info(f"Generating TTS (Edge TTS) for: '{cleaned_text[:50]}...' (lang: {language})")
-            logger.info(f"Edge TTS output path: {output_path}")
-            # Use correct voice for each language
+            
             voice = self.voice_mapping.get(language, "en-IN-PrabhatNeural")
+            
+            # Directly await the async generation
+            await self._edge_tts_generate(cleaned_text, voice, output_path)
+
+            if not os.path.exists(output_path) or os.path.getsize(output_path) < 1000:
+                logger.error(f"Edge TTS did not create a valid output file: {output_path}")
+                return False
+
+            # Run synchronous pydub processing in a thread to avoid blocking
             import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    import nest_asyncio
-                    nest_asyncio.apply()
-                    loop.run_until_complete(self._edge_tts_generate(cleaned_text, voice, output_path))
-                else:
-                    if sys.platform.startswith('win'):
-                        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-                    loop.run_until_complete(self._edge_tts_generate(cleaned_text, voice, output_path))
-            except Exception as loop_err:
-                logger.error(f"Edge TTS event loop error: {loop_err}")
-                return False
-            # Check if file was created
-            if not os.path.exists(output_path):
-                logger.error(f"Edge TTS did not create output file: {output_path}")
-                return False
-            else:
-                file_size = os.path.getsize(output_path)
-                logger.info(f"Edge TTS output file created: {output_path} (size: {file_size} bytes)")
-                if file_size < 1000:
-                    logger.warning(f"Output file is very small, may be silent or corrupt: {output_path}")
-            self._enhance_audio(output_path, output_path)
-            # After enhancement, check file size again
-            if os.path.exists(output_path):
-                enhanced_size = os.path.getsize(output_path)
-                logger.info(f"Enhanced audio file size: {enhanced_size} bytes")
+            await asyncio.to_thread(self._enhance_audio, output_path, output_path)
+            
             logger.info(f"TTS generation successful: {output_path}")
             return True
         except Exception as e:
@@ -134,11 +119,8 @@ class TTSService:
         try:
             audio = AudioSegment.from_file(input_path)
             enhanced_audio = self._apply_divine_effects(audio)
-            enhanced_audio.export(
-                output_path, 
-                format="wav",
-                parameters=["-ac", "1", "-ar", "44100", "-acodec", "pcm_s16le"]
-            )
+            enhanced_audio.export(output_path, format="wav", 
+                                parameters=["-ac", "1", "-ar", "44100", "-acodec", "pcm_s16le"])
             logger.info("✅ Audio enhancement applied successfully")
         except Exception as e:
             logger.warning(f"Audio enhancement failed, using simple conversion: {e}")
@@ -157,8 +139,8 @@ class TTSService:
 
     def _apply_divine_effects(self, audio: AudioSegment) -> AudioSegment:
         try:
-            # Just boost volume (safe, no audioop dependency)
-            return audio + 10
+            audio = audio + 10
+            return audio
         except Exception as e:
             logger.warning(f"Divine effects failed, using basic volume boost: {e}")
             return audio + 10

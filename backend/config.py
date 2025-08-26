@@ -36,8 +36,9 @@ class Settings:
     AUDIO_FORMAT: str = os.getenv("AUDIO_FORMAT", "wav")
     
     # CORS
+    # IMPORTANT: When deploying, set FRONTEND_URL in .env to your deployed frontend URL (e.g., https://your-frontend-domain.com)
     CORS_ORIGINS: List[str] = [
-        os.getenv("FRONTEND_URL", "https://goat-chatbot.vercel.app/")
+        os.getenv("FRONTEND_URL", "http://localhost:3000")
     ]
     
     # Language Support
