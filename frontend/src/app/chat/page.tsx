@@ -124,9 +124,13 @@ export default function ChatPage() {
     try {
       const stored = window.localStorage.getItem('ganesha_chat_history');
       if (stored) {
-        const parsed: Message[] = JSON.parse(stored).map((msg: any) => ({
+        // Defines the shape of the message as stored in JSON (timestamp is a string)
+        type StoredMessage = Omit<Message, 'timestamp'> & { timestamp: string };
+
+        // Safely parse the JSON and map it to the correct Message type
+        const parsed: Message[] = (JSON.parse(stored) as StoredMessage[]).map((msg) => ({
           ...msg,
-          timestamp: new Date(msg.timestamp),
+          timestamp: new Date(msg.timestamp), 
         }));
         dispatch({ type: 'SET_MESSAGES', payload: parsed });
       } else {
