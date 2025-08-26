@@ -123,7 +123,7 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null); // FIXED: Changed type from NodeJS.Timeout
   const hasSpokenRef = useRef(false);
 
   useEffect(() => {
@@ -176,15 +176,17 @@ export default function ChatPage() {
     const audio = new Audio(url);
     const allVideos = [videoRefMobile.current, videoRefTablet.current, videoRefLeft.current, videoRefRight.current];
 
+    // FIXED: Moved onStop definition inside this function's scope
+    const onStop = () => {
+        dispatch({ type: 'SET_IS_PLAYING', payload: { isPlaying: false, messageId: null } });
+        dispatch({ type: 'SET_GANESHA_SPEAKING', payload: false });
+        allVideos.forEach(v => v?.pause());
+    };
+
     audio.onplay = () => {
       dispatch({ type: 'SET_IS_PLAYING', payload: { isPlaying: true, messageId } });
       dispatch({ type: 'SET_GANESHA_SPEAKING', payload: true });
       allVideos.forEach(v => v?.play());
-    };
-    const onStop = () => {
-      dispatch({ type: 'SET_IS_PLAYING', payload: { isPlaying: false, messageId: null } });
-      dispatch({ type: 'SET_GANESHA_SPEAKING', payload: false });
-      allVideos.forEach(v => v?.pause());
     };
     audio.onended = onStop;
     audio.onpause = onStop;
@@ -270,7 +272,7 @@ export default function ChatPage() {
   };
 
   const startVoiceActivityDetection = (stream: MediaStream) => {
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
     const analyser = audioContext.createAnalyser();
     const source = audioContext.createMediaStreamSource(stream);
     
@@ -405,14 +407,12 @@ export default function ChatPage() {
 
 return (
   <div className="flex flex-col h-screen w-screen bg-gradient-to-br from-slate-50 to-orange-50 dark:from-slate-900 dark:to-orange-900/20 overflow-hidden relative">
-    {/* --- Responsive Ganesha Video Animation --- */}
     <div 
       className={cn(
         'absolute inset-0 w-full h-full transition-opacity duration-1000 ease-in-out z-0 pointer-events-none',
         isGaneshaSpeaking ? 'opacity-100' : 'opacity-0'
       )}
     >
-      {/* Mobile View: Single full background video */}
       <video
         ref={videoRefMobile}
         src="/video.mp4"
@@ -421,8 +421,6 @@ return (
         playsInline
         className="absolute h-full w-full object-cover opacity-80 md:hidden"
       />
-
-      {/* Tablet View: Single centered video */}
       <div className="hidden md:flex lg:hidden justify-center items-center w-full h-full">
         <div className="relative w-1/2 h-full">
             <video
@@ -435,8 +433,6 @@ return (
             />
         </div>
       </div>
-      
-      {/* Desktop View: Two Corner Videos */}
       <div className="hidden lg:flex justify-between items-end w-full h-full">
         <video
           ref={videoRefLeft}
@@ -457,9 +453,7 @@ return (
         />
       </div>
     </div>
-
     <div className="relative z-10 flex flex-col h-full bg-transparent">
-      {/* --- Header --- */}
       <header className="flex-shrink-0 bg-white/80 dark:bg-slate-950/80 backdrop-blur-lg border-b border-slate-200 dark:border-slate-800">
         <div className="max-w-4xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
@@ -486,8 +480,6 @@ return (
           </div>
         </div>
       </header>
-      
-      {/* --- Chat Area --- */}
       <main className="flex-1 overflow-y-auto">
         <ScrollArea className="h-full">
           <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
@@ -541,8 +533,6 @@ return (
           </div>
         </ScrollArea>
       </main>
-
-      {/* --- Input Footer --- */}
       <footer className="flex-shrink-0 bg-white/80 dark:bg-slate-950/80 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800">
         <div className="max-w-4xl mx-auto px-4 py-3">
           <div className="flex items-center gap-2">
@@ -572,8 +562,8 @@ return (
             </Button>
           </div>
           {isRecording && (
-              <p className="text-xs text-center mt-2 font-medium">
-                  {hasSpokenRef.current ? 'Recording will stop after a second of silence...' : 'Listening...'}
+              <p className="text-xs text-center mt-2 font-medium text-slate-500">
+                  {hasSpokenRef.current ? 'Recording stops on silence...' : 'Listening...'}
               </p>
           )}
         </div>
