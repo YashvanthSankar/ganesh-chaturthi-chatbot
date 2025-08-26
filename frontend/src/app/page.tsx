@@ -50,10 +50,10 @@ export default function LandingPage() {
           </div>
           
           <div className="space-y-6 max-w-4xl mx-auto">
-            <h1 className="text-5xl md:text-7xl font-black bg-gradient-to-r from-orange-600 via-red-500 to-pink-600 bg-clip-text text-transparent leading-tight"> {/* MODIFIED: Font size */}
+            <h1 className="text-4xl md:text-7xl font-black bg-gradient-to-r from-orange-600 via-red-500 to-pink-600 bg-clip-text text-transparent leading-tight"> {/* MODIFIED: Font size */}
               The G.O.A.T Bot
               <br />
-              <span className="text-4xl md:text-6xl bg-gradient-to-r from-slate-800 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent"> {/* MODIFIED: Font size */}
+              <span className="text-3xl md:text-6xl bg-gradient-to-r from-slate-800 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent"> {/* MODIFIED: Font size */}
                 Ganapathi Of All Time
               </span>
             </h1>
