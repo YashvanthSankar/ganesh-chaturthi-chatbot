@@ -291,13 +291,14 @@ async def get_supported_languages():
     }
 
 if __name__ == "__main__":
-    # Run server using PORT from environment (for deployment)
     import os
+    # Use the DEBUG setting from your config to control reload
+    from config import settings
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
         port=port,
-        reload=True,
+        reload=settings.DEBUG, # This will be False on Render
         log_level="info"
     )

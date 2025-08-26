@@ -32,7 +32,7 @@ interface ChatResponse {
   audio_url?: string;
 }
 
-// --- Reducer ---
+// --- State Management with useReducer ---
 type State = {
   messages: Message[];
   textInput: string;
@@ -43,6 +43,7 @@ type State = {
   playingMessageId: string | null;
   isClient: boolean;
   isGaneshaSpeaking: boolean;
+  voiceDetected: boolean;
 };
 
 type Action =
@@ -55,7 +56,8 @@ type Action =
   | { type: 'TOGGLE_MUTE' }
   | { type: 'SET_IS_PLAYING'; payload: { isPlaying: boolean; messageId: string | null } }
   | { type: 'SET_IS_CLIENT'; payload: boolean }
-  | { type: 'SET_GANESHA_SPEAKING'; payload: boolean };
+  | { type: 'SET_GANESHA_SPEAKING'; payload: boolean }
+  | { type: 'SET_VOICE_DETECTED'; payload: boolean };
 
 const initialState: State = {
   messages: [],
@@ -67,6 +69,7 @@ const initialState: State = {
   playingMessageId: null,
   isClient: false,
   isGaneshaSpeaking: false,
+  voiceDetected: false,
 };
 
 function chatReducer(state: State, action: Action): State {
@@ -98,6 +101,8 @@ function chatReducer(state: State, action: Action): State {
           return { ...state, isClient: action.payload };
         case 'SET_GANESHA_SPEAKING':
           return { ...state, isGaneshaSpeaking: action.payload };
+        case 'SET_VOICE_DETECTED':
+          return { ...state, voiceDetected: action.payload };
         default:
           return state;
       }
@@ -106,28 +111,27 @@ function chatReducer(state: State, action: Action): State {
 export default function ChatPage() {
   const router = useRouter();
   const [state, dispatch] = useReducer(chatReducer, initialState);
-  const { messages, textInput, isRecording, isProcessing, isMuted, isPlaying, playingMessageId, isClient, isGaneshaSpeaking } = state;
+  const { messages, textInput, isRecording, isProcessing, isMuted, isPlaying, playingMessageId, isClient, isGaneshaSpeaking, voiceDetected } = state;
 
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
-  // NEW: Refs for all responsive video elements
   const videoRefMobile = useRef<HTMLVideoElement | null>(null);
   const videoRefTablet = useRef<HTMLVideoElement | null>(null);
   const videoRefLeft = useRef<HTMLVideoElement | null>(null);
   const videoRefRight = useRef<HTMLVideoElement | null>(null);
-  
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const hasSpokenRef = useRef(false);
 
   useEffect(() => {
     dispatch({ type: 'SET_IS_CLIENT', payload: true });
     try {
       const stored = window.localStorage.getItem('ganesha_chat_history');
       if (stored) {
-        // Defines the shape of the message as stored in JSON (timestamp is a string)
         type StoredMessage = Omit<Message, 'timestamp'> & { timestamp: string };
-
-        // Safely parse the JSON and map it to the correct Message type
         const parsed: Message[] = (JSON.parse(stored) as StoredMessage[]).map((msg) => ({
           ...msg,
           timestamp: new Date(msg.timestamp), 
@@ -158,49 +162,39 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  useEffect(() => {
+    return () => {
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      audioContextRef.current?.close();
+    };
+  }, []);
+
   const playAudio = async (url: string, messageId: string) => {
     if (isMuted) return;
     if (audioPlayerRef.current) audioPlayerRef.current.pause();
 
     const audio = new Audio(url);
-    
-    // MODIFIED: Control all video elements
-    const playVideos = () => {
-        videoRefMobile.current?.play();
-        videoRefTablet.current?.play();
-        videoRefLeft.current?.play();
-        videoRefRight.current?.play();
-    }
-    const pauseVideos = () => {
-        videoRefMobile.current?.pause();
-        videoRefTablet.current?.pause();
-        videoRefLeft.current?.pause();
-        videoRefRight.current?.pause();
-    }
+    const allVideos = [videoRefMobile.current, videoRefTablet.current, videoRefLeft.current, videoRefRight.current];
 
     audio.onplay = () => {
       dispatch({ type: 'SET_IS_PLAYING', payload: { isPlaying: true, messageId } });
       dispatch({ type: 'SET_GANESHA_SPEAKING', payload: true });
-      playVideos();
+      allVideos.forEach(v => v?.play());
     };
-    audio.onended = () => {
+    const onStop = () => {
       dispatch({ type: 'SET_IS_PLAYING', payload: { isPlaying: false, messageId: null } });
       dispatch({ type: 'SET_GANESHA_SPEAKING', payload: false });
-      pauseVideos();
+      allVideos.forEach(v => v?.pause());
     };
-    audio.onpause = () => {
-      dispatch({ type: 'SET_IS_PLAYING', payload: { isPlaying: false, messageId: null } });
-      dispatch({ type: 'SET_GANESHA_SPEAKING', payload: false });
-      pauseVideos();
-    };
+    audio.onended = onStop;
+    audio.onpause = onStop;
 
     try {
       await audio.play();
       audioPlayerRef.current = audio;
     } catch (error) {
       console.error('Audio play failed:', error);
-      dispatch({ type: 'SET_IS_PLAYING', payload: { isPlaying: false, messageId: null } });
-      dispatch({ type: 'SET_GANESHA_SPEAKING', payload: false });
+      onStop();
     }
   };
 
@@ -259,25 +253,12 @@ export default function ChatPage() {
     }
   };
 
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      dispatch({ type: 'SET_IS_RECORDING', payload: true });
-      mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-      audioChunksRef.current = [];
-      mediaRecorderRef.current.ondataavailable = (event) => audioChunksRef.current.push(event.data);
-      mediaRecorderRef.current.onstop = () => {
-        stream.getTracks().forEach((track) => track.stop());
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        if (audioChunksRef.current.length > 0) sendAudioMessage(audioBlob);
-        audioChunksRef.current = [];
-      };
-      mediaRecorderRef.current.start();
-    } catch (error) {
-      console.error('Mic access error:', error);
-      alert('Microphone access denied. Please check browser permissions.');
-      dispatch({ type: 'SET_IS_RECORDING', payload: false });
-    }
+  const cleanupVAD = () => {
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    audioContextRef.current?.close().catch(() => {});
+    audioContextRef.current = null;
+    analyserRef.current = null;
+    dispatch({ type: 'SET_VOICE_DETECTED', payload: false });
   };
 
   const stopRecording = () => {
@@ -285,6 +266,88 @@ export default function ChatPage() {
       mediaRecorderRef.current.stop();
     }
     dispatch({ type: 'SET_IS_RECORDING', payload: false });
+    cleanupVAD();
+  };
+
+  const startVoiceActivityDetection = (stream: MediaStream) => {
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const analyser = audioContext.createAnalyser();
+    const source = audioContext.createMediaStreamSource(stream);
+    
+    analyser.fftSize = 256;
+    analyser.minDecibels = -70;
+    source.connect(analyser);
+
+    audioContextRef.current = audioContext;
+    analyserRef.current = analyser;
+
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    const silenceDelay = 1000;
+    const checkInterval = 200;
+
+    const check = () => {
+        if (!analyserRef.current || !mediaRecorderRef.current || mediaRecorderRef.current.state !== 'recording') {
+            return;
+        }
+
+        analyserRef.current.getByteFrequencyData(dataArray);
+        const sum = dataArray.reduce((a, b) => a + b, 0);
+        const average = sum / bufferLength;
+
+        if (average > 2) {
+            hasSpokenRef.current = true;
+            dispatch({ type: 'SET_VOICE_DETECTED', payload: true });
+            if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+            silenceTimerRef.current = setTimeout(stopRecording, silenceDelay);
+        } else {
+            dispatch({ type: 'SET_VOICE_DETECTED', payload: false });
+        }
+
+        if (mediaRecorderRef.current.state === 'recording') {
+            setTimeout(check, checkInterval);
+        }
+    };
+    check();
+  };
+  
+  const startRecording = async () => {
+    if (isRecording) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      dispatch({ type: 'SET_IS_RECORDING', payload: true });
+      hasSpokenRef.current = false;
+
+      mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      audioChunksRef.current = [];
+      mediaRecorderRef.current.ondataavailable = (event) => audioChunksRef.current.push(event.data);
+      mediaRecorderRef.current.onstop = () => {
+        stream.getTracks().forEach((track) => track.stop());
+        if (hasSpokenRef.current) {
+            const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+            if (audioBlob.size > 0) sendAudioMessage(audioBlob);
+        } else {
+            dispatch({
+                type: 'ADD_MESSAGE',
+                payload: {
+                  id: 'no-speech-' + Date.now(),
+                  type: 'assistant',
+                  content: 'I could not hear anything. Please try speaking again.',
+                  timestamp: new Date(),
+                },
+              });
+        }
+        audioChunksRef.current = [];
+        cleanupVAD();
+      };
+      mediaRecorderRef.current.start();
+      startVoiceActivityDetection(stream);
+
+    } catch (error) {
+      console.error('Mic access error:', error);
+      alert('Microphone access denied. Please check browser permissions.');
+      dispatch({ type: 'SET_IS_RECORDING', payload: false });
+    }
   };
   
   const sendAudioMessage = async (audioBlob: Blob) => {
@@ -342,14 +405,14 @@ export default function ChatPage() {
 
 return (
   <div className="flex flex-col h-screen w-screen bg-gradient-to-br from-slate-50 to-orange-50 dark:from-slate-900 dark:to-orange-900/20 overflow-hidden relative">
-    {/* MODIFIED: Responsive Ganesha Video Animation Container */}
+    {/* --- Responsive Ganesha Video Animation --- */}
     <div 
       className={cn(
         'absolute inset-0 w-full h-full transition-opacity duration-1000 ease-in-out z-0 pointer-events-none',
         isGaneshaSpeaking ? 'opacity-100' : 'opacity-0'
       )}
     >
-      {/* Mobile View: Single full background video (visble on screens smaller than md) */}
+      {/* Mobile View: Single full background video */}
       <video
         ref={videoRefMobile}
         src="/video.mp4"
@@ -359,7 +422,7 @@ return (
         className="absolute h-full w-full object-cover opacity-80 md:hidden"
       />
 
-      {/* Tablet View: Single centered video (visible on md screens, hidden on lg screens) */}
+      {/* Tablet View: Single centered video */}
       <div className="hidden md:flex lg:hidden justify-center items-center w-full h-full">
         <div className="relative w-1/2 h-full">
             <video
@@ -373,7 +436,7 @@ return (
         </div>
       </div>
       
-      {/* Desktop View: Two Corner Videos (visible on lg screens and up) */}
+      {/* Desktop View: Two Corner Videos */}
       <div className="hidden lg:flex justify-between items-end w-full h-full">
         <video
           ref={videoRefLeft}
@@ -396,6 +459,7 @@ return (
     </div>
 
     <div className="relative z-10 flex flex-col h-full bg-transparent">
+      {/* --- Header --- */}
       <header className="flex-shrink-0 bg-white/80 dark:bg-slate-950/80 backdrop-blur-lg border-b border-slate-200 dark:border-slate-800">
         <div className="max-w-4xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
@@ -423,6 +487,7 @@ return (
         </div>
       </header>
       
+      {/* --- Chat Area --- */}
       <main className="flex-1 overflow-y-auto">
         <ScrollArea className="h-full">
           <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
@@ -477,6 +542,7 @@ return (
         </ScrollArea>
       </main>
 
+      {/* --- Input Footer --- */}
       <footer className="flex-shrink-0 bg-white/80 dark:bg-slate-950/80 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800">
         <div className="max-w-4xl mx-auto px-4 py-3">
           <div className="flex items-center gap-2">
@@ -491,10 +557,25 @@ return (
             <Button size="icon" className="h-11 w-11 rounded-full flex-shrink-0" onClick={sendTextMessage} disabled={isProcessing || isRecording || !textInput.trim()}>
               <Send className="w-5 h-5" />
             </Button>
-            <Button size="icon" className={cn('h-11 w-11 rounded-full flex-shrink-0 transition-colors', isRecording ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700')} onClick={isRecording ? stopRecording : startRecording} disabled={isProcessing}>
+            <Button
+              size="icon"
+              className={cn(
+                'h-11 w-11 rounded-full flex-shrink-0 transition-colors',
+                isRecording && voiceDetected && 'bg-green-600 hover:bg-green-700',
+                isRecording && !voiceDetected && 'bg-red-600 hover:bg-red-700',
+                !isRecording && 'bg-blue-600 hover:bg-blue-700'
+              )}
+              onClick={isRecording ? stopRecording : startRecording}
+              disabled={isProcessing}
+            >
               {isRecording ? <MicOff className="w-5 h-5 animate-pulse" /> : <Mic className="w-5 h-5" />}
             </Button>
           </div>
+          {isRecording && (
+              <p className="text-xs text-center mt-2 font-medium">
+                  {hasSpokenRef.current ? 'Recording will stop after a second of silence...' : 'Listening...'}
+              </p>
+          )}
         </div>
       </footer>
     </div>
