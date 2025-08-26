@@ -15,6 +15,19 @@ G.O.A.T Bot is a multilingual, interactive chatbot that lets you converse with L
 
 ---
 
+## Tech Stack
+
+| Category         | Technology / Library                                              |
+| ---------------- | ----------------------------------------------------------------- |
+| Frontend         | Next.js, React, TypeScript, Tailwind CSS, shadcn/ui, lucide-react |
+| Backend          | Python, FastAPI                                                   |
+| Speech-to-Text   | faster-whisper (tiny model for performance)                       |
+| LLM              | Google Gemini API                                                 |
+| Text-to-Speech   | Edge TTS                                                          |
+| Audio Processing | pydub, ffmpeg                                                     |
+
+---
+
 ## System Architecture & Workflow
 
 The application uses a modern, decoupled architecture with a Next.js frontend and a Python FastAPI backend.
@@ -64,19 +77,6 @@ The application uses a modern, decoupled architecture with a Next.js frontend an
 - **TTS Service:** Text response is converted into divine voice using Edge TTS.
 - **Response to Frontend:** API sends text and audio URL back to the frontend.
 - **Final Experience:** User reads the response, sees the Ganesha animation, and hears the audio blessing.
-
----
-
-## Tech Stack
-
-| Category         | Technology / Library                                              |
-| ---------------- | ----------------------------------------------------------------- |
-| Frontend         | Next.js, React, TypeScript, Tailwind CSS, shadcn/ui, lucide-react |
-| Backend          | Python, FastAPI                                                   |
-| Speech-to-Text   | faster-whisper (tiny model for performance)                       |
-| LLM              | Google Gemini API                                                 |
-| Text-to-Speech   | Edge TTS                                                          |
-| Audio Processing | pydub, ffmpeg                                                     |
 
 ---
 
