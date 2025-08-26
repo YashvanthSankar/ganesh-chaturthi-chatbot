@@ -21,4 +21,5 @@ langdetect
 indic-transliteration
 pytest
 black
+pyaudioop
 
