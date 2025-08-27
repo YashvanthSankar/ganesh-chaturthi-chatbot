@@ -143,10 +143,10 @@ export default function LandingPage() {
             
             <CardContent className="p-6 md:p-12 relative z-10">
               <div className="mb-8 md:mb-10">
-                <div className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-500 to-red-500 text-white px-4 py-2 rounded-full text-sm font-semibold mt-4 mb-6 shadow-lg">
+                {/* <div className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-500 to-red-500 text-white px-4 py-2 rounded-full text-sm font-semibold mt-4 mb-6 shadow-lg">
                   <Zap className="w-4 h-4" />
                   Premium AI Experience
-                </div>
+                </div> */}
                 
                 <h2 className="text-3xl md:text-5xl font-black mb-6 bg-gradient-to-r from-slate-800 via-orange-600 to-red-600 dark:from-white dark:via-orange-400 dark:to-red-400 bg-clip-text text-transparent leading-tight pb-2">
                   Begin Your Divine Journey
@@ -173,20 +173,7 @@ export default function LandingPage() {
                   <ArrowRight className={`w-5 h-5 md:w-6 md:h-6 ml-3 transition-transform duration-300 ${isHovered ? 'translate-x-1' : ''}`} />
                 </Button>
                 
-                <div className="flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-8 text-sm text-slate-500 dark:text-slate-400">
-                  <div className="flex items-center gap-2">
-                    <Heart className="w-4 h-4 text-red-400" />
-                    <span>Free to use</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-yellow-400" />
-                    <span>No signup required</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-blue-400" />
-                    <span>Instant access</span>
-                  </div>
-                </div>
+                
               </div>
               
               <div className="mt-10 pt-8 border-t border-orange-200/50 dark:border-orange-700/30">

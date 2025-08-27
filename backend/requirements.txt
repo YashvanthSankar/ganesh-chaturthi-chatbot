@@ -8,15 +8,15 @@ torchaudio
 fastapi
 uvicorn
 python-multipart
-faster-whisper
+faster-whisper //stt
 transformers
 accelerate
-httpx
-pydub
+httpx //api
+pydub //audio 
 edge-tts
 nest_asyncio
 python-dotenv
 aiofiles
 langdetect
-indic-transliteration
-langid
+indic-transliteration 
+langid //lang-detection
