@@ -19,3 +19,4 @@ python-dotenv
 aiofiles
 langdetect
 indic-transliteration
+langid

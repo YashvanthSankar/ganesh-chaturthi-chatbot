@@ -26,38 +26,35 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
-      {/* Minimal Background */}
+      {/* Animated Background Gradient */}
       <div className="absolute inset-0">
         <div 
-          className="absolute inset-0 opacity-10"
+          className="absolute inset-0 opacity-10 animate-gradient-move"
           style={{
             background: `radial-gradient(600px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(251, 146, 60, 0.1), transparent 40%)`,
           }}
         ></div>
       </div>
 
-      <div className="container mx-auto px-4 sm:px-6 py-8 md:py-12 relative z-10"> {/* MODIFIED: Adjusted padding */}
-        {/* Hero Section */}
-        <div className="text-center mb-12 md:mb-16"> {/* MODIFIED: Adjusted margin */}
+      <div className="container mx-auto px-4 sm:px-6 py-8 md:py-12 relative z-10">
+        {/* Hero Section with Entrance Animation */}
+        <div className="text-center mb-12 md:mb-16 animate-fade-in">
           <div className="relative inline-block mb-8">
             <div 
-              className="absolute inset-0 w-24 h-24 md:w-32 md:h-32 bg-gradient-to-r from-orange-400 to-red-500 rounded-full blur-xl opacity-50 animate-pulse" // MODIFIED: Size
+              className="absolute inset-0 w-24 h-24 md:w-32 md:h-32 bg-gradient-to-r from-orange-400 to-red-500 rounded-full blur-xl opacity-50 animate-pulse"
               style={{ transform: 'scale(1.5)' }}
             ></div>
-            <div className="relative w-24 h-24 md:w-32 md:h-32 bg-gradient-to-br from-orange-500 via-red-500 to-pink-500 rounded-full flex items-center justify-center shadow-2xl transform hover:scale-110 transition-all duration-300 border-4 border-white/20 backdrop-blur-sm"> {/* MODIFIED: Size */}
-              <span className="text-5xl md:text-6xl drop-shadow-lg animate-bounce">🕉️</span> {/* MODIFIED: Font size */}
+            <div className="relative w-24 h-24 md:w-32 md:h-32 bg-gradient-to-br from-orange-500 via-red-500 to-pink-500 rounded-full flex items-center justify-center shadow-2xl transform hover:scale-110 transition-all duration-300 border-4 border-white/20 backdrop-blur-sm">
+              <span className="text-5xl md:text-6xl drop-shadow-lg animate-bounce">🕉️</span>
             </div>
           </div>
-          
           <div className="space-y-6 max-w-4xl mx-auto">
-            <h1 className="text-4xl md:text-7xl font-black bg-gradient-to-r from-orange-600 via-red-500 to-pink-600 bg-clip-text text-transparent leading-tight"> {/* MODIFIED: Font size */}
+            <h1 className="text-4xl md:text-7xl font-black bg-gradient-to-r from-orange-600 via-red-500 to-pink-600 bg-clip-text text-transparent leading-tight animate-slide-up">
               The G.O.A.T Bot
               <br />
-              <span className="text-3xl md:text-6xl bg-gradient-to-r from-slate-800 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent"> {/* MODIFIED: Font size */}
-                Ganapathi Of All Time
-              </span>
+              <span className="text-3xl md:text-6xl bg-gradient-to-r from-slate-800 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">Ganapathi Of All Time</span>
             </h1>
-            <p className="text-base md:text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto px-4"> {/* MODIFIED: Font size and padding */}
+            <p className="text-base md:text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto px-4 animate-fade-in-delay">
               Experience divine wisdom through cutting-edge AI technology embodying the sacred blessings of 
               <span className="font-semibold text-orange-600"> Lord Ganesha</span>, 
               the eternal remover of obstacles

@@ -1,17 +1,17 @@
 """
-Lord Ganesha Voice Chatbot - FastAPI Backend (Optimized)
+Lord Ganesha Voice Chatbot - FastAPI Backend (Optimized for Hackathon)
 """
 import os
 import uuid
 import logging
 from pathlib import Path
-from typing import Optional
-import asyncio # MODIFIED: Import asyncio
-import shutil # MODIFIED: Import shutil
+import asyncio
+import shutil
+from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 from contextlib import asynccontextmanager
@@ -19,202 +19,111 @@ from contextlib import asynccontextmanager
 from config import settings
 from services import asr_service, llm_service, tts_service
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - [%(levelname)s] - %(message)s')
 logger = logging.getLogger(__name__)
 
-# --- Lifespan Manager for Startup/Shutdown ---
+thread_pool_executor = ThreadPoolExecutor()
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("🕉️ Initializing Lord Ganesha Voice Chatbot...")
-    try:
-        logger.info("Loading ASR service...")
-        await asr_service.initialize()
-        
-        logger.info("Loading LLM service...")
-        await llm_service.initialize()
-        
-        logger.info("Loading TTS service...")
-        await tts_service.initialize()
-        
-        logger.info("✨ All services cached and ready!")
-    except Exception as e:
-        logger.error(f"❌ Failed to initialize services during startup: {e}")
-    
+    logger.info("🕉️  Initializing Lord Ganesha Voice Chatbot...")
+    initialization_tasks = [asr_service.initialize(), llm_service.initialize(), tts_service.initialize()]
+    await asyncio.gather(*initialization_tasks, return_exceptions=True)
+    logger.info("✨ All services initialized!")
     yield
     logger.info("Shutting down Ganesha Voice Chatbot.")
+    thread_pool_executor.shutdown(wait=True)
 
-# --- FastAPI App Initialization ---
-app = FastAPI(
-    title="Lord Ganesha Voice Chatbot",
-    description="A multilingual AI voice chatbot embodying the wisdom of Lord Ganesha",
-    version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-    lifespan=lifespan
-)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app = FastAPI(title="Lord Ganesha Voice Chatbot", version="1.5.0", lifespan=lifespan)
+app.add_middleware(CORSMiddleware, allow_origins=settings.CORS_ORIGINS, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 UPLOAD_DIR = Path("uploads")
 OUTPUT_DIR = Path("outputs")
 UPLOAD_DIR.mkdir(exist_ok=True)
 OUTPUT_DIR.mkdir(exist_ok=True)
+app.mount("/outputs", StaticFiles(directory=OUTPUT_DIR), name="outputs")
 
-app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
-
-# --- MODIFIED: Helper function for non-blocking file save ---
-def _save_upload_file(upload_file: UploadFile, destination: Path):
-    """Saves an uploaded file to a destination in a blocking manner."""
+def save_upload_file_sync(upload_file: UploadFile, destination: Path):
     try:
         with destination.open("wb") as buffer:
             shutil.copyfileobj(upload_file.file, buffer)
     finally:
         upload_file.file.close()
 
-# --- API Endpoints ---
-@app.get("/")
+async def run_in_thread_pool(func, *args):
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(thread_pool_executor, func, *args)
+
+@app.get("/", summary="Root endpoint with basic info")
 async def root():
-    return {
-        "message": "🕉️ Welcome to Lord Ganesha Voice Chatbot",
-        "supported_languages": list(settings.SUPPORTED_LANGUAGES.keys()),
-    }
+    return {"message": "🕉️ Welcome to the Lord Ganesha Voice Chatbot API"}
 
-@app.get("/health")
+@app.get("/health", summary="Health check for all services")
 async def health_check():
-    asr_status = asr_service.is_initialized()
-    llm_status = llm_service.is_initialized()
-    tts_status = tts_service.is_initialized()
-    overall_status = asr_status and llm_status and tts_status
-    return {
-        "status": "healthy" if overall_status else "unhealthy",
-        "services": {
-            "asr": "ready" if asr_status else "not ready",
-            "llm": "ready" if llm_status else "not ready", 
-            "tts": "ready" if tts_status else "not ready"
-        },
-    }
+    asr_status, llm_status, tts_status = asr_service.is_initialized(), llm_service.is_initialized(), tts_service.is_initialized()
+    healthy = asr_status and llm_status and tts_status
+    return JSONResponse(status_code=200 if healthy else 503, content={"status": "healthy" if healthy else "unhealthy", "services": {"asr": "ready" if asr_status else "not ready", "llm": "ready" if llm_status else "not ready", "tts": "ready" if tts_status else "not ready"}})
 
-@app.post("/chat")
-async def voice_chat(
-    audio: UploadFile = File(..., description="Audio file (webm, mp3, wav, m4a)"),
-):
-    session_id = str(uuid.uuid4())
-    logger.info(f"🎙️ New voice chat session: {session_id}")
+
+async def process_chat(user_input: str, input_language_hint: str, session_id: str):
+    logger.info(f"🧠 Generating Ganesha's response for session {session_id} with language hint '{input_language_hint}'...")
+    response_text = await llm_service.get_response(user_input, input_language_hint)
     
-    try:
-        if not audio.content_type or not audio.content_type.startswith('audio/'):
-            raise HTTPException(status_code=400, detail="Please upload a valid audio file")
-        
-        file_extension = audio.filename.split('.')[-1] if '.' in audio.filename else 'webm'
-        audio_filename = f"{session_id}_recording.{file_extension}"
-        audio_path = UPLOAD_DIR / audio_filename
-        
-        # MODIFIED: Save file in a non-blocking way
-        await asyncio.to_thread(_save_upload_file, audio, audio_path)
-        logger.info(f"📁 Saved audio: {audio_path}")
-        
-        # MODIFIED: Transcribe in a non-blocking way
-        logger.info("🎯 Converting speech to text...")
-        user_text, detected_language = await asyncio.to_thread(
-            asr_service.transcribe_audio, str(audio_path)
-        )
-        
-        if not user_text:
-            raise HTTPException(status_code=400, detail="Could not understand the audio.")
-        logger.info(f"📝 Transcribed ({detected_language}): {user_text}")
-        
-        logger.info("🧠 Generating Ganesha's response...")
-        response_text = await llm_service.get_response(user_text, detected_language)
-        logger.info(f"💭 Ganesha responds ({detected_language}): {response_text}")
-        
-        logger.info("🎵 Converting text to divine speech...")
-        response_audio_filename = f"{session_id}_response.wav"
-        audio_output_path = OUTPUT_DIR / response_audio_filename
-        
-        tts_success = await tts_service.generate_speech(
-            response_text, detected_language, str(audio_output_path)
-        )
-        
-        audio_url = f"/outputs/{response_audio_filename}" if tts_success else None
-        
-        return {
-            "session_id": session_id,
-            "transcription": user_text,
-            "detected_language": detected_language,
-            "response": response_text,
-            "response_language": detected_language,
-            "audio_url": audio_url,
-        }
-        
-    except Exception as e:
-        logger.error(f"❌ Voice chat error: {e}")
-        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
+    # --- THE CRITICAL FIX IS HERE ---
+    # Detect the language of the *actual response* from the LLM.
+    # This is the most reliable way to determine the correct voice for TTS.
+    response_language = llm_service.detect_language_fast(response_text)
+    
+    logger.info(f"💭 Ganesha responds (Detected: {response_language}): {response_text}")
+    
+    logger.info("🎵 Converting text to divine speech...")
+    audio_filename = f"{session_id}_response.mp3"
+    audio_output_path = OUTPUT_DIR / audio_filename
+    
+    tts_success = await tts_service.generate_speech(response_text, response_language, str(audio_output_path))
+    
+    return response_text, response_language, f"/outputs/{audio_filename}" if tts_success else None
 
-@app.post("/text-chat")
-async def text_chat(
-    text: str = Form(..., description="Your question or message"),
-):
+@app.post("/chat", summary="Handle voice-based chat")
+async def voice_chat(audio: UploadFile = File(...)):
+    if not audio.content_type or not audio.content_type.startswith('audio/'):
+        raise HTTPException(status_code=400, detail="Invalid file type.")
+    
+    session_id = str(uuid.uuid4())
+    logger.info(f"🎙️  New voice chat session: {session_id}")
+    
+    file_extension = Path(audio.filename).suffix or ".webm"
+    audio_path = UPLOAD_DIR / f"{session_id}_recording{file_extension}"
+    
+    await run_in_thread_pool(save_upload_file_sync, audio, audio_path)
+    logger.info(f"📁 Saved audio to {audio_path}")
+    
+    logger.info("🎯 Converting speech to text (offloaded to thread pool)...")
+    transcription_result = await run_in_thread_pool(asr_service.transcribe_audio, str(audio_path))
+    
+    if transcription_result is None:
+        raise HTTPException(status_code=400, detail="Could not understand the audio. No speech detected.")
+        
+    user_text, detected_language = transcription_result
+    logger.info(f"📝 Transcribed ({detected_language}): {user_text}")
+    
+    response_text, response_language, audio_url = await process_chat(user_text, detected_language, session_id)
+    
+    return {"session_id": session_id, "transcription": user_text, "user_message": user_text, "language": detected_language, "response": response_text, "response_language": response_language, "audio_url": audio_url}
+
+@app.post("/text-chat", summary="Handle text-based chat")
+async def text_chat(text: str = Form(...)):
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="Text input cannot be empty.")
+    
     session_id = str(uuid.uuid4())
     logger.info(f"💬 New text chat session: {session_id}")
     
-    try:
-        if not text.strip():
-            raise HTTPException(status_code=400, detail="Please provide some text")
-        
-        detected_language = llm_service.detect_language_fast(text)
-        logger.info(f"📝 User message: '{text}' (lang: {detected_language})")
-        
-        response_text = await llm_service.get_response(text, detected_language)
-        logger.info(f"💭 Ganesha responds ({detected_language}): {response_text}")
-        
-        audio_filename = f"{session_id}_response.wav"
-        audio_output_path = OUTPUT_DIR / audio_filename
-        
-        tts_success = await tts_service.generate_speech(
-            response_text, detected_language, str(audio_output_path)
-        )
-        
-        audio_url = f"/outputs/{audio_filename}" if tts_success else None
+    detected_language = llm_service.detect_language_fast(text)
+    logger.info(f"📝 User message (Detected hint: {detected_language}): '{text}'")
+    
+    response_text, response_language, audio_url = await process_chat(text, detected_language, session_id)
 
-        return {
-            "session_id": session_id,
-            "user_message": text,
-            "response": response_text,
-            "response_language": detected_language,
-            "audio_url": audio_url,
-        }
-        
-    except Exception as e:
-        logger.error(f"❌ Text chat error: {e}")
-        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
-    
-# MODIFIED: Added security check to prevent path traversal attacks
-@app.get("/audio/{filename}")
-async def get_audio(filename: str):
-    if ".." in filename or "/" in filename:
-        raise HTTPException(status_code=400, detail="Invalid filename")
-    
-    audio_path = OUTPUT_DIR / filename
-    if not audio_path.exists():
-        raise HTTPException(status_code=404, detail="Audio file not found")
-    
-    return FileResponse(audio_path, media_type="audio/wav")
-
+    return {"session_id": session_id, "user_message": text, "language": detected_language, "response": response_text, "response_language": response_language, "audio_url": audio_url}
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=port,
-        reload=settings.DEBUG
-    )
+    uvicorn.run("main:app", host=settings.HOST, port=settings.PORT, reload=settings.DEBUG)

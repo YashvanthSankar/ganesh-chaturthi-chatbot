@@ -492,7 +492,7 @@ return (
                 )}
                 <div className={cn('flex flex-col gap-1 w-full', message.type === 'user' ? 'items-end' : 'items-start')}>
                   <div className={cn('max-w-md md:max-w-lg rounded-2xl px-4 py-2.5 shadow-sm break-words', 
-                    message.type === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded-bl-none'
+                    message.type === 'user' ? 'bg-orange-600 text-white rounded-br-none' : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded-bl-none'
                   )}>
                     <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
                   </div>
