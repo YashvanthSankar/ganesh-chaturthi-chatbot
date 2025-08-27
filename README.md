@@ -3,9 +3,9 @@
 **A Divine Dialogue with Lord Ganesha, Powered by AI**
 
 G.O.A.T Bot is a multilingual, interactive chatbot that lets you converse with Lord Ganesha through text and voice. Powered by FastAPI, Gemini API, and Edge TTS, it provides real-time speech recognition, philosophical responses, and divine voice output in 11+ Indian languages along with background animation. The project is designed for the Ganesh Chaturthi Challenge, blending ancient wisdom with modern technology for a truly immersive and uplifting experience.
----
+
 [demo video](demo_video.txt)
----
+
 ## Key Features
 
 - **Advanced Voice Input (Speech-to-Text):** Uses faster-whisper for high-accuracy, real-time transcription of user's spoken worries in multiple languages.
