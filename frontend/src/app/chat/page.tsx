@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { ThemeToggle } from '@/components/ui/theme-toggle'; // Assuming this is in your project
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
 
@@ -84,7 +85,7 @@ function chatReducer(state: State, action: Action): State {
             messages: state.messages.map((msg) =>
               msg.id === action.payload.id
                 ? { ...msg, content: action.payload.content, language: action.payload.language }
-                                : msg
+                : msg
             ),
           };
         case 'SET_TEXT_INPUT':
@@ -123,7 +124,7 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null); // FIXED: Changed type from NodeJS.Timeout
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasSpokenRef = useRef(false);
 
   useEffect(() => {
@@ -175,8 +176,7 @@ export default function ChatPage() {
 
     const audio = new Audio(url);
     const allVideos = [videoRefMobile.current, videoRefTablet.current, videoRefLeft.current, videoRefRight.current];
-
-    // FIXED: Moved onStop definition inside this function's scope
+    
     const onStop = () => {
         dispatch({ type: 'SET_IS_PLAYING', payload: { isPlaying: false, messageId: null } });
         dispatch({ type: 'SET_GANESHA_SPEAKING', payload: false });
@@ -272,7 +272,7 @@ export default function ChatPage() {
   };
 
   const startVoiceActivityDetection = (stream: MediaStream) => {
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     const analyser = audioContext.createAnalyser();
     const source = audioContext.createMediaStreamSource(stream);
     
@@ -406,7 +406,8 @@ export default function ChatPage() {
   };
 
 return (
-  <div className="flex flex-col h-screen w-screen bg-gradient-to-br from-slate-50 to-orange-50 dark:from-slate-900 dark:to-orange-900/20 overflow-hidden relative">
+  // --- Dark Mode Enhancement: Consistent warm background gradient ---
+  <div className="flex flex-col h-screen w-screen bg-gradient-to-br from-slate-50 to-orange-50 dark:from-slate-900 dark:via-gray-900 dark:to-orange-950/50 overflow-hidden relative">
     <div 
       className={cn(
         'absolute inset-0 w-full h-full transition-opacity duration-1000 ease-in-out z-0 pointer-events-none',
@@ -454,7 +455,8 @@ return (
       </div>
     </div>
     <div className="relative z-10 flex flex-col h-full bg-transparent">
-      <header className="flex-shrink-0 bg-white/80 dark:bg-slate-950/80 backdrop-blur-lg border-b border-slate-200 dark:border-slate-800">
+      {/* --- Dark Mode Enhancement: Subtle border for depth --- */}
+      <header className="flex-shrink-0 bg-white/80 dark:bg-slate-950/80 backdrop-blur-lg border-b border-slate-200 dark:border-white/10">
         <div className="max-w-4xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -474,9 +476,13 @@ return (
                 </div>
               </div>
             </div>
-            <Button variant="ghost" size="icon" className="rounded-full" onClick={toggleMute}>
-              {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-            </Button>
+            {/* --- Dark Mode Enhancement: Grouped icons for a cleaner look --- */}
+            <div className="flex items-center gap-2">
+                <Button variant="ghost" size="icon" className="rounded-full" onClick={toggleMute}>
+                  {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+                </Button>
+                <ThemeToggle />
+            </div>
           </div>
         </div>
       </header>
@@ -491,15 +497,18 @@ return (
                   </Avatar>
                 )}
                 <div className={cn('flex flex-col gap-1 w-full', message.type === 'user' ? 'items-end' : 'items-start')}>
+                  {/* --- Dark Mode Enhancement: Themed user message bubble --- */}
                   <div className={cn('max-w-md md:max-w-lg rounded-2xl px-4 py-2.5 shadow-sm break-words', 
-                    message.type === 'user' ? 'bg-orange-600 text-white rounded-br-none' : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded-bl-none'
+                    message.type === 'user' 
+                      ? 'bg-orange-600 text-white rounded-br-none' 
+                      : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded-bl-none'
                   )}>
                     <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
                   </div>
                   <div className="flex items-center gap-2 px-1">
-                    {message.language && <Badge variant="outline" className="text-xs h-5">{message.language.toUpperCase()}</Badge>}
+                    {message.language && <Badge variant="outline" className="text-xs h-5 border-slate-300 dark:border-slate-600">{message.language.toUpperCase()}</Badge>}
                     {message.audioUrl && (
-                      <Button variant="ghost" size="sm" className="h-6 px-1.5 text-xs text-slate-500 hover:text-slate-900" onClick={() => (isPlaying && playingMessageId === message.id) ? stopAudio() : playAudio(message.audioUrl!, message.id)}>
+                      <Button variant="ghost" size="sm" className="h-6 px-1.5 text-xs text-slate-500 hover:text-slate-900 dark:hover:text-slate-200" onClick={() => (isPlaying && playingMessageId === message.id) ? stopAudio() : playAudio(message.audioUrl!, message.id)}>
                         {(isPlaying && playingMessageId === message.id) ? <VolumeX className="w-3 h-3 mr-1" /> : <Volume2 className="w-3 h-3 mr-1" />}
                         Listen
                       </Button>
@@ -509,7 +518,8 @@ return (
                 </div>
                 {message.type === 'user' && (
                   <Avatar className="h-8 w-8 flex-shrink-0">
-                    <AvatarFallback className="bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-lg">👤</AvatarFallback>
+                    {/* --- Dark Mode Enhancement: Themed user avatar --- */}
+                    <AvatarFallback className="bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400 text-lg">👤</AvatarFallback>
                   </Avatar>
                 )}
               </div>
@@ -523,8 +533,8 @@ return (
                 <div className="max-w-md md:max-w-lg rounded-2xl px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-bl-none shadow-sm">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
-                    <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse delay-150"></div>
-                    <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse delay-300"></div>
+                    <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse [animation-delay:0.2s]"></div>
+                    <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse [animation-delay:0.4s]"></div>
                   </div>
                 </div>
               </div>
@@ -533,18 +543,21 @@ return (
           </div>
         </ScrollArea>
       </main>
-      <footer className="flex-shrink-0 bg-white/80 dark:bg-slate-950/80 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800">
+      {/* --- Dark Mode Enhancement: Subtle border for depth --- */}
+      <footer className="flex-shrink-0 bg-white/80 dark:bg-slate-950/80 backdrop-blur-lg border-t border-slate-200 dark:border-white/10">
         <div className="max-w-4xl mx-auto px-4 py-3">
           <div className="flex items-center gap-2">
+            {/* --- Dark Mode Enhancement: Themed input field focus --- */}
             <Input
               placeholder="Ask Ganesha a question..."
               value={textInput}
               onChange={(e) => dispatch({ type: 'SET_TEXT_INPUT', payload: e.target.value })}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendTextMessage(); }}}
               disabled={isProcessing || isRecording}
-              className="flex-1 h-11 text-base rounded-full px-5"
+              className="flex-1 h-11 text-base rounded-full px-5 focus-visible:ring-orange-500"
             />
-            <Button size="icon" className="h-11 w-11 rounded-full flex-shrink-0" onClick={sendTextMessage} disabled={isProcessing || isRecording || !textInput.trim()}>
+            {/* --- Dark Mode Enhancement: Themed send button --- */}
+            <Button size="icon" className="h-11 w-11 rounded-full flex-shrink-0 bg-orange-600 hover:bg-orange-700" onClick={sendTextMessage} disabled={isProcessing || isRecording || !textInput.trim()}>
               <Send className="w-5 h-5" />
             </Button>
             <Button
@@ -553,7 +566,8 @@ return (
                 'h-11 w-11 rounded-full flex-shrink-0 transition-colors',
                 isRecording && voiceDetected && 'bg-green-600 hover:bg-green-700',
                 isRecording && !voiceDetected && 'bg-red-600 hover:bg-red-700',
-                !isRecording && 'bg-blue-600 hover:bg-blue-700'
+                // --- Dark Mode Enhancement: Themed mic button ---
+                !isRecording && 'bg-orange-600 hover:bg-orange-700'
               )}
               onClick={isRecording ? stopRecording : startRecording}
               disabled={isProcessing}
@@ -562,7 +576,7 @@ return (
             </Button>
           </div>
           {isRecording && (
-              <p className="text-xs text-center mt-2 font-medium text-slate-500">
+              <p className="text-xs text-center mt-2 font-medium text-slate-500 dark:text-slate-400">
                   {hasSpokenRef.current ? 'Recording stops on silence...' : 'Listening...'}
               </p>
           )}
