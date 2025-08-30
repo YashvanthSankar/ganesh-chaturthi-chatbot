@@ -20,7 +20,7 @@ class TTSService:
         logger.info("TTS Service initialized using Edge TTS.")
 
     async def initialize(self):
-        logger.info("✅ TTS Service is ready.")
+        logger.info("TTS Service is ready.")
 
     def is_initialized(self) -> bool:
         return True
@@ -55,7 +55,7 @@ class TTSService:
                 logger.error(f"Edge TTS failed to create a valid output file: {output_path}")
                 return False
             
-            logger.info(f"✅ Successfully generated TTS audio: {output_path}")
+            logger.info(f"Successfully generated TTS audio: {output_path}")
             return True
         except Exception as e:
             logger.error(f"TTS generation failed for text '{cleaned_text[:50]}...': {e}", exc_info=True)

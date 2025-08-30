@@ -26,10 +26,10 @@ thread_pool_executor = ThreadPoolExecutor()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("🕉️  Initializing Lord Ganesha Voice Chatbot...")
+    logger.info("Initializing Lord Ganesha Voice Chatbot...")
     initialization_tasks = [asr_service.initialize(), llm_service.initialize(), tts_service.initialize()]
     await asyncio.gather(*initialization_tasks, return_exceptions=True)
-    logger.info("✨ All services initialized!")
+    logger.info("All services initialized!")
     yield
     logger.info("Shutting down Ganesha Voice Chatbot.")
     thread_pool_executor.shutdown(wait=True)
@@ -56,7 +56,7 @@ async def run_in_thread_pool(func, *args):
 
 @app.get("/", summary="Root endpoint with basic info")
 async def root():
-    return {"message": "🕉️ Welcome to the Lord Ganesha Voice Chatbot API"}
+    return {"message": "Welcome to the Lord Ganesha Voice Chatbot API"}
 
 @app.get("/health", summary="Health check for all services")
 async def health_check():
@@ -66,7 +66,7 @@ async def health_check():
 
 
 async def process_chat(user_input: str, input_language_hint: str, session_id: str):
-    logger.info(f"🧠 Generating Ganesha's response for session {session_id} with language hint '{input_language_hint}'...")
+    logger.info(f"Generating Ganesha's response for session {session_id} with language hint '{input_language_hint}'...")
     response_text = await llm_service.get_response(user_input, input_language_hint)
     
     # --- THE CRITICAL FIX IS HERE ---
@@ -74,7 +74,7 @@ async def process_chat(user_input: str, input_language_hint: str, session_id: st
     # This is the most reliable way to determine the correct voice for TTS.
     response_language = llm_service.detect_language_fast(response_text)
     
-    logger.info(f"💭 Ganesha responds (Detected: {response_language}): {response_text}")
+    logger.info(f"Ganesha responds (Detected: {response_language}): {response_text}")
     
     logger.info("🎵 Converting text to divine speech...")
     audio_filename = f"{session_id}_response.mp3"
@@ -90,22 +90,22 @@ async def voice_chat(audio: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Invalid file type.")
     
     session_id = str(uuid.uuid4())
-    logger.info(f"🎙️  New voice chat session: {session_id}")
+    logger.info(f"New voice chat session: {session_id}")
     
     file_extension = Path(audio.filename).suffix or ".webm"
     audio_path = UPLOAD_DIR / f"{session_id}_recording{file_extension}"
     
     await run_in_thread_pool(save_upload_file_sync, audio, audio_path)
-    logger.info(f"📁 Saved audio to {audio_path}")
+    logger.info(f"Saved audio to {audio_path}")
     
-    logger.info("🎯 Converting speech to text (offloaded to thread pool)...")
+    logger.info("Converting speech to text (offloaded to thread pool)...")
     transcription_result = await run_in_thread_pool(asr_service.transcribe_audio, str(audio_path))
     
     if transcription_result is None:
         raise HTTPException(status_code=400, detail="Could not understand the audio. No speech detected.")
         
     user_text, detected_language = transcription_result
-    logger.info(f"📝 Transcribed ({detected_language}): {user_text}")
+    logger.info(f"Transcribed ({detected_language}): {user_text}")
     
     response_text, response_language, audio_url = await process_chat(user_text, detected_language, session_id)
     
@@ -117,10 +117,10 @@ async def text_chat(text: str = Form(...)):
         raise HTTPException(status_code=400, detail="Text input cannot be empty.")
     
     session_id = str(uuid.uuid4())
-    logger.info(f"💬 New text chat session: {session_id}")
+    logger.info(f"New text chat session: {session_id}")
     
     detected_language = llm_service.detect_language_fast(text)
-    logger.info(f"📝 User message (Detected hint: {detected_language}): '{text}'")
+    logger.info(f"User message (Detected hint: {detected_language}): '{text}'")
     
     response_text, response_language, audio_url = await process_chat(text, detected_language, session_id)
 

@@ -1,11 +1,11 @@
 "use client"
 import React, { useState, useEffect } from 'react';
-import { MessageCircle, Mic, Globe, Sparkles, ArrowRight, Zap, Heart } from 'lucide-react';
+import { MessageCircle, Mic, Globe, Sparkles, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
-import { ThemeToggle } from '@/components/ui/theme-toggle'; // Make sure this path is correct
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 export default function LandingPage() {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });

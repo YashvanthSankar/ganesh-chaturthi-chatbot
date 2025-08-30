@@ -29,9 +29,9 @@ class GaneshaLLMService:
         try:
             self.client = httpx.AsyncClient(timeout=45.0)
             self._initialized = True
-            logger.info("✅ Gemini API client initialized successfully.")
+            logger.info("Gemini API client initialized successfully.")
         except Exception as e:
-            logger.error(f"❌ Failed to initialize Gemini API client: {e}", exc_info=True)
+            logger.error(f"Failed to initialize Gemini API client: {e}", exc_info=True)
 
     def is_initialized(self) -> bool:
         return self._initialized

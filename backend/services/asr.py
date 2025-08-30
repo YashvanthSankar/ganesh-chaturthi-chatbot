@@ -29,9 +29,9 @@ class ASRService:
                 download_root="./models"
             )
             self._initialized = True
-            logger.info(f"✅ Whisper model '{settings.WHISPER_MODEL}' loaded successfully.")
+            logger.info(f"Whisper model '{settings.WHISPER_MODEL}' loaded successfully.")
         except Exception as e:
-            logger.error(f"❌ Failed to load Whisper model: {e}", exc_info=True)
+            logger.error(f"Failed to load Whisper model: {e}", exc_info=True)
             raise
 
     def is_initialized(self) -> bool:
