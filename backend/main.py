@@ -125,5 +125,6 @@ async def text_chat(text: str = Form(...)):
     response_text, response_language, audio_url = await process_chat(text, detected_language, session_id)
 
     return {"session_id": session_id, "user_message": text, "language": detected_language, "response": response_text, "response_language": response_language, "audio_url": audio_url}
+
 if __name__ == "__main__":
     uvicorn.run("main:app", host=settings.HOST, port=settings.PORT, reload=settings.DEBUG)
