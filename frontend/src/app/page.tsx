@@ -191,7 +191,7 @@ export default function LandingPage() {
         {/* Testimonial */}
         <div className="text-center mt-12 opacity-80">
           <p className="text-slate-600 dark:text-slate-400 italic">
-            Made by Yashvanth S & Team
+            Made by Yashvanth S
           </p>
         </div>
       </div>
